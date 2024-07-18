@@ -1,13 +1,10 @@
 package main
 
 import (
+	rl "github.com/gen2brain/raylib-go/raylib"
 	"image"
-	"image/color"
 	"log"
 	"time"
-	"unsafe"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type State struct {
@@ -34,10 +31,10 @@ type Filters struct {
 
 func (s *State) Init() {
 	log.Print("Initialising state")
-	// load the image from the file
+	//load the image from the file
 	s.ShownImage = rl.LoadImage("resources/image.png")
 
-	// resize the image to fit the window on its largest axis
+	//resize the image to fit the window on its largest axis
 	aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
 
 	// if it's longer on the x axis
@@ -49,20 +46,14 @@ func (s *State) Init() {
 	}
 	s.OrigImage = s.ShownImage.ToImage().(*image.RGBA)
 
-	// send the image to the GPU
-	length := s.ShownImage.Width * s.ShownImage.Height
-	slice := (*[1 << 30]color.RGBA)(unsafe.Pointer(state.ShownImage))[:length:length]
-	rl.UpdateTexture(s.CurrentTexture, slice)
-	// state.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
+	//send the image to the GPU
+	//length := s.ShownImage.Width * s.ShownImage.Height
+	//slice := (*[1 << 30]color.RGBA)(unsafe.Pointer(state.ShownImage))[:length:length]
+	//rl.UpdateTexture(s.CurrentTexture, slice)
+	state.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
 
-	// initialise everything else
+	//initialise everything else
 	s.BackgroundColour = rl.RayWhite
-}
-
-func TimeFunc(x func(any) any, args any) (any, time.Duration) {
-	start := time.Now()
-
-	return x(args), time.Since(start)
 }
 
 func (s *State) ApplyFilters() {
@@ -75,7 +66,7 @@ func (s *State) ApplyFilters() {
 	duration := time.Since(start)
 	log.Printf("Time taken to copy image: %v", duration.Milliseconds())
 
-	// tempImage := s.OrigImage
+	// tempImage := s.OrigImageA
 
 	// for each filter, apply it to the shown image
 	if s.Filters.IsGrayscaleEnabled {
