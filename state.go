@@ -75,12 +75,10 @@ func (s *State) ApplyFilters() {
 	duration := time.Since(start)
 	log.Printf("Time taken to copy image: %v", duration.Milliseconds())
 
-	tempImage := s.OrigImage
+	// tempImage := s.OrigImage
 
 	// for each filter, apply it to the shown image
 	if s.Filters.IsGrayscaleEnabled {
-		_, duration := TimeFunc(rl.ImageColorGrayscale, s.ShownImage)
-		log.Printf("Time taken to apply grayscale: %v", duration.Milliseconds())
-		// rl.ImageColorGrayscale(s.ShownImage)
+		rl.ImageColorGrayscale(s.ShownImage)
 	}
 }
