@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="abc971d2-6c7c-4f64-a5e4-1626aa1a3459" name="Changes" comment="" />
+    <list default="true" id="abc971d2-6c7c-4f64-a5e4-1626aa1a3459" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/ui_builder.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/state.go" beforeDir="false" afterPath="$PROJECT_DIR$/state.go" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -55,9 +61,9 @@
 }</component>
   <component name="RunManager" selected="Go Build.go build main">
     <configuration name="go build main" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
-      <module name="nea2" />
       <working_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
+      <package value="nea" />
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <method v="2" />

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -12,12 +10,10 @@ var state State
 
 // TODO: use go image api and late stage convert to raylib image for easy image manipulation
 func main() {
-	// initialise window
 	rl.InitWindow(0, 0, "Image editor")
 	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
 	rl.SetTargetFPS(60)
 
-	// initialise state
 	state.Init()
 
 	// adjust the window size so it's the same size as the image + a 400 pixel gutter for image controls
@@ -30,12 +26,17 @@ func main() {
 		rl.BeginDrawing()
 
 		rl.ClearBackground(state.BackgroundColour)
-		// apply all the filters
 
+		// apply all the filters
+		// only reload the texture if the filters have changed because it's quite slow
 		if oldFilters != state.Filters {
-			log.Println("Filters changed")
+			InfoLog("Filters changed")
 			state.ApplyFilters()
-			state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage)
+			// NOTE: Write about the performance and how it impacts UX and stuff
+			state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
+			// start := time.Now()
+			// rl.UpdateTexture(state.CurrentTexture, Uint8SliceToRGBASlice(state.OrigImage.Pix))
+			// log.Printf("Time to update texture: %s", time.Since(start).String())
 		}
 		oldFilters = state.Filters
 		rl.DrawTexture(state.CurrentTexture, 0, 0, rl.White)
@@ -48,7 +49,6 @@ func main() {
 		)
 
 		rl.DrawFPS(10, 10)
-
 		rl.EndDrawing()
 	}
 }

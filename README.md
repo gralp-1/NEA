@@ -7,7 +7,7 @@
 - [ ] port backend to go image api, convert to raylib images before sending to GPU
 - [ ] implement state filter diffing so filters only need to be reapplied if the filters change, not every frame
   - Explain performance implications, include benchmarks of applying all filters (worst case) and memory stress of copying the image every fram
-  - (83ms for a go image.RGBA to raylib image conversion)
+  - 77ms (13fps) to do it every frame
 - [ ] implement a way to save the image to disk
 - [ ] widescale logging for debugging
 - [ ] Testing "raw" vs native way of sending data to GPU
