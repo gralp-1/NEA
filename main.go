@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"math"
+
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -47,6 +50,19 @@ func main() {
 			"Grayscale",
 			state.Filters.IsGrayscaleEnabled,
 		)
+		state.Filters.IsQuantizingEnabled = gui.CheckBox(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 30, 10, 10),
+			"Quantization",
+			state.Filters.IsQuantizingEnabled,
+		)
+		state.Filters.QuantizingBands = uint8(math.Trunc(float64(gui.Slider(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 50, 100, 10),
+			fmt.Sprintf("Quantization bands: %d   0", state.Filters.QuantizingBands),
+			"255",
+			float32(state.Filters.QuantizingBands),
+			0.0,
+			16.0,
+		))))
 
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
