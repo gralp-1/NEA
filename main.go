@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"image/png"
 	"math"
+	"os"
 
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -11,7 +13,6 @@ import (
 // global state variable
 var state State
 
-// TODO: use go image api and late stage convert to raylib image for easy image manipulation
 func main() {
 	rl.InitWindow(0, 0, "Image editor")
 	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
@@ -67,4 +68,6 @@ func main() {
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
 	}
+	f, _ := os.Create("image.png")
+	_ = png.Encode(f, state.WorkingImage.SubImage(state.WorkingImage.Rect)) // what a stupid API
 }

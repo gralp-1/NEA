@@ -72,35 +72,25 @@ func subCol(lhs, rhs color.RGBA) color.RGBA {
 	}
 }
 
-func inlineRGBACast(r, g, b, a uint32) color.RGBA {
-	return color.RGBA{
-		R: r,
-		G: g,
-		B: b,
-		A: a,
-	}
-}
+//func (s *State) DitheringFilter() {
+//	for y := range s.WorkingImage.Bounds().Dy() {
+//		for x := range s.WorkingImage.Bounds().Dx() {
+//			oldPixel := s.WorkingImage.At(x, y)
+//			newPixel := findClosestPalleteCol(oldPixel)
+//			idx := s.WorkingImage.PixOffset(x, y)
+//			s.WorkingImage.Pix[idx+0] = newPixel.R
+//			s.WorkingImage.Pix[idx+1] = newPixel.G
+//			s.WorkingImage.Pix[idx+2] = newPixel.B
+//			s.WorkingImage.Pix[idx+3] = newPixel.A
+//			quant_error := subCol(inlineRGBACast(oldPixel.RGBA()), inlineRGBACast(newPixel.RGBA()))
+//			// distribute the error to the neighbouring pixels
+//			s.WorkingImage.At(x+1, y)
+//
+//		}
+//
+//	}
+//}
 
-func (s *State) DitheringFilter() {
-	for y := range s.WorkingImage.Bounds().Dy() {
-		for x := range s.WorkingImage.Bounds().Dx() {
-			oldPixel := s.WorkingImage.At(x, y)
-			newPixel := findClosestPalleteCol(oldPixel)
-			idx := s.WorkingImage.PixOffset(x, y)
-			s.WorkingImage.Pix[idx+0] = newPixel.R
-			s.WorkingImage.Pix[idx+1] = newPixel.G
-			s.WorkingImage.Pix[idx+2] = newPixel.B
-			s.WorkingImage.Pix[idx+3] = newPixel.A
-			quant_error := subCol(inlineRGBACast(oldPixel.RGBA()), inlineRGBACast(newPixel.RGBA()))
-			// distribute the error to the neighbouring pixels
-			s.WorkingImage.At(x+1, y)
-
-		}
-
-	}
-}
-
-// NOTE: can't be used on the critical path, too slow
 func (s *State) ApplyFilters() {
 	InfoLog("Applying filters")
 	DebugLogf("Current filters: %+v", s.Filters) // %+v prints a struct with field names
