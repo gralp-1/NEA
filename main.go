@@ -64,6 +64,36 @@ func main() {
 			0.0,
 			16.0,
 		))))
+		state.Filters.ChannelAdjustmentEnabled = gui.CheckBox(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 80, 10, 10),
+			"Channel adjustment",
+			state.Filters.ChannelAdjustmentEnabled,
+		)
+		state.Filters.ChannelAdjustment[0] = gui.Slider(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 90, 100, 10),
+			"Red 0.0",
+			"1.0",
+			state.Filters.ChannelAdjustment[0],
+			0.0,
+			1.0,
+		)
+
+		state.Filters.ChannelAdjustment[1] = gui.Slider(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 100, 100, 10),
+			"Green 0.0",
+			"1.0",
+			state.Filters.ChannelAdjustment[1],
+			0.0,
+			1.0,
+		)
+		state.Filters.ChannelAdjustment[2] = gui.Slider(
+			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 110, 100, 10),
+			"Blue 0.0",
+			"1.0",
+			state.Filters.ChannelAdjustment[2],
+			0.0,
+			1.0,
+		)
 
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()

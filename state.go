@@ -25,11 +25,13 @@ type State struct {
 }
 
 type Filters struct {
-	IsGrayscaleEnabled  bool
-	IsQuantizingEnabled bool
-	QuantizingBands     uint8
-	IsDitheringEnabled  bool
-	DitheringLevel      int
+	IsGrayscaleEnabled       bool
+	IsQuantizingEnabled      bool
+	QuantizingBands          uint8
+	IsDitheringEnabled       bool
+	DitheringLevel           int
+	ChannelAdjustmentEnabled bool
+	ChannelAdjustment        [3]float32
 }
 
 func (s *State) GrayscaleFilter() {
@@ -105,6 +107,15 @@ func (s *State) ApplyFilters() {
 		DebugLog("Grayscale filter applied")
 		s.GrayscaleFilter()
 	}
+	if s.Filters.ChannelAdjustmentEnabled {
+		DebugLog("Channel adjustment applied")
+		for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
+			s.WorkingImage.Pix[i+0] = uint8(float32(s.WorkingImage.Pix[i+0]) * s.Filters.ChannelAdjustment[0])
+			s.WorkingImage.Pix[i+1] = uint8(float32(s.WorkingImage.Pix[i+1]) * s.Filters.ChannelAdjustment[1])
+			s.WorkingImage.Pix[i+2] = uint8(float32(s.WorkingImage.Pix[i+2]) * s.Filters.ChannelAdjustment[2])
+
+		}
+	}
 	if s.Filters.IsQuantizingEnabled {
 		DebugLog("Quantizing applied")
 		s.QuantizingFilter()
@@ -115,11 +126,13 @@ func (s *State) ApplyFilters() {
 func (s *State) Init() {
 	InfoLog("Initialising state")
 	s.Filters = Filters{
-		IsGrayscaleEnabled:  false,
-		IsDitheringEnabled:  false,
-		DitheringLevel:      4,
-		IsQuantizingEnabled: false,
-		QuantizingBands:     50,
+		IsGrayscaleEnabled:       false,
+		IsDitheringEnabled:       false,
+		DitheringLevel:           4,
+		IsQuantizingEnabled:      false,
+		QuantizingBands:          50,
+		ChannelAdjustmentEnabled: false,
+		ChannelAdjustment:        [3]float32{1.0, 1.0, 1.0},
 	}
 	//load the image from the file
 	s.ShownImage = rl.LoadImage("resources/image.png")
