@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"image"
-	"image/color"
 	"math"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -58,19 +57,6 @@ func (s *State) QuantizingFilter() {
 		if i == 100 {
 			DebugLogf("Pixel 1 post: %d, %d, %d", res[i+0], res[i+1], res[i+2])
 		}
-	}
-}
-
-func findClosestPalleteCol(col color.Color) color.Color {
-	// quantize
-	return nil
-}
-func subCol(lhs, rhs color.RGBA) color.RGBA {
-	return color.RGBA{
-		R: lhs.R - rhs.R,
-		G: lhs.G - rhs.G,
-		B: lhs.B - rhs.B,
-		A: 255,
 	}
 }
 

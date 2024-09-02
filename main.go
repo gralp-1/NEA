@@ -16,7 +16,7 @@ var state State
 func main() {
 	rl.InitWindow(0, 0, "Image editor")
 	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
-	rl.SetTargetFPS(60)
+	//rl.SetTargetFPS(60)
 
 	state.Init()
 
