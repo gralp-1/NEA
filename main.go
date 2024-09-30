@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"image/png"
 	"math"
 	"os"
@@ -37,10 +38,10 @@ func main() {
 			InfoLog("Filters changed")
 			state.ApplyFilters()
 			// NOTE: Write about the performance and how it impacts UX and stuff
+			start := time.Now()
 			state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
-			// start := time.Now()
+			DebugLogf("Time to update texture: %s", time.Since(start).String())
 			// rl.UpdateTexture(state.CurrentTexture, Uint8SliceToRGBASlice(state.OrigImage.Pix))
-			// log.Printf("Time to update texture: %s", time.Since(start).String())
 		}
 		oldFilters = state.Filters
 		rl.DrawTexture(state.CurrentTexture, 0, 0, rl.White)
@@ -51,7 +52,7 @@ func main() {
 			"Grayscale",
 			state.Filters.IsGrayscaleEnabled,
 		)
-		state.Filters.IsQuantizingEnabled = gui.CheckBox(
+		state.Filters.IsQuantizingEnabled = gui.CheckBox( // gabagool
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 30, 10, 10),
 			"Quantization",
 			state.Filters.IsQuantizingEnabled,
@@ -98,6 +99,7 @@ func main() {
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
 	}
+
 	f, _ := os.Create("image.png")
 	_ = png.Encode(f, state.WorkingImage.SubImage(state.WorkingImage.Rect)) // what a stupid API
 }
