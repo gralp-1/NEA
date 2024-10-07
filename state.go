@@ -14,6 +14,7 @@ type State struct {
 	OrigImage    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
 	WorkingImage image.RGBA
 	ShownImage   *rl.Image
+	ImagePalette []rl.Color
 
 	// This is the texture that
 	CurrentTexture   rl.Texture2D
@@ -31,6 +32,23 @@ type Filters struct {
 	DitheringLevel           int
 	ChannelAdjustmentEnabled bool
 	ChannelAdjustment        [3]float32
+}
+
+func (s *State) GetImageColours() []rl.Color {
+	pixels := make([]rl.Color, len(s.OrigImage.Pix)/4, len(s.OrigImage.Pix)/4)
+	for idx := range s.OrigImage.Pix {
+		pixels[idx/4] = rl.Color{R: s.OrigImage.Pix[idx], G: s.OrigImage.Pix[idx+1], B: s.OrigImage.Pix[idx+2], A: s.OrigImage.Pix[idx+3]}
+		idx += 4
+	}
+	return pixels
+}
+func (s *State) GenerateImagePalette() {
+	// for each image
+	p := make(map[rl.Color]struct{})
+	colourValues := s.GetImageColours()
+	for _, value := range colourValues {
+		p = append(p, value)
+	}
 }
 
 func (s *State) GrayscaleFilter() {
