@@ -8,6 +8,7 @@ import (
 func TestGrayscale(t *testing.T) {
 	t.Run("RGB Channels", func(t *testing.T) {
 		// Aim: Grayscale filter should average the RGB values of each pixel
+
 		s := State{
 			WorkingImage: image.RGBA{
 				Pix: []uint8{255, 0, 0, 255, 0, 99, 0, 255}, // Red, Green

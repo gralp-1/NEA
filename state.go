@@ -6,15 +6,17 @@ import (
 	"math"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
+	set "github.com/golang-collections/collections/set"
 )
 
 type State struct {
 
 	// We have current image which never changes and shown image is the one that is shown on the screen and edited
-	OrigImage    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
-	WorkingImage image.RGBA
-	ShownImage   *rl.Image
-	ImagePalette []rl.Color
+	OrigImage                    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
+	WorkingImage                 image.RGBA
+	ShownImage                   *rl.Image
+	ImagePalette                 set.Set
+	QuantizationKmeansIterations int
 
 	// This is the texture that
 	CurrentTexture   rl.Texture2D
@@ -44,11 +46,7 @@ func (s *State) GetImageColours() []rl.Color {
 }
 func (s *State) GenerateImagePalette() {
 	// for each image
-	p := make(map[rl.Color]struct{})
-	colourValues := s.GetImageColours()
-	for _, value := range colourValues {
-		p = append(p, value)
-	}
+	s.ImagePalette = *set.New(s.GetImageColours())
 }
 
 func (s *State) GrayscaleFilter() {
@@ -59,7 +57,83 @@ func (s *State) GrayscaleFilter() {
 		s.WorkingImage.Pix[i+2] = mean
 	}
 }
+
+type Integer interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | // unsigned
+		~int | ~int8 | ~int16 | ~int32 | ~int64 // signed
+}
+
+type ClusteredColour struct {
+	colour  rl.Color
+	cluster int
+}
+
+func Dist[T Integer](args ...T) float64 {
+	var sum float64 = 0
+	for _, v := range args {
+		sum += float64(v * v)
+	}
+	return math.Sqrt(sum)
+}
+
+func Nearest(p ClusteredColour, mean []rl.Color) (int, float64) {
+	iMin := 0
+	dMin := Dist(p.colour.R-mean[0].R, p.colour.G-mean[0].G, p.colour.B-mean[0].B)
+	for i := 1; i < len(mean); i++ {
+		d := Dist(p.colour.R-mean[i].R, p.colour.G-mean[i].G, p.colour.B-mean[i].B)
+		if d < dMin {
+			dMin = d
+			iMin = i
+		}
+	}
+	return iMin, dMin
+}
+
+func (s *State) KMeansQuantizingFilter(data []ClusteredColour, mean []rl.Color) {
+	// initial assignment
+	for i, p := range data {
+		cMin, _ := Nearest(p, mean)
+		data[i].cluster = cMin
+	}
+	mLen := make([]int, len(mean))
+	for {
+		// update means
+		for i := range mean {
+			mean[i] = rl.Color{}
+			mLen[i] = 0
+		}
+		for _, p := range data {
+			mean[p.cluster].R += p.colour.R
+			mean[p.cluster].R += p.colour.G
+			mean[p.cluster].R += p.colour.B
+			mLen[p.cluster]++
+		}
+		for i := range mean {
+			inv := 1 / float64(mLen[i])
+			mean[i].R = uint8(inv * float64(mean[i].R))
+			mean[i].G = uint8(inv * float64(mean[i].G))
+			mean[i].B = uint8(inv * float64(mean[i].B))
+		}
+		// make new assignments, count changes
+		var changes int
+		for i, p := range data {
+			if cMin, _ := Nearest(p, mean); cMin != p.cluster {
+				changes++
+				data[i].cluster = cMin
+			}
+		}
+		if changes == 0 {
+			return
+		}
+	}
+}
 func (s *State) QuantizingFilter() {
+	// maybe preserve current code and make a "simple" and "accurate" mode
+	// this is an NP-hard algorithm as we need to ca
+	// We need to do k means clustering on the pixel space
+	// then set each colour in the local space to the mean
+	// value of the space... I think
+
 	quantizationBandWidth := 255 / float64(state.Filters.QuantizingBands-1)
 	// floor(x/bandWidth)*bandWidth + bandWidth/2
 	// FIXME this is terrible, doesnn't work and crashes in weird edge cases
@@ -138,6 +212,7 @@ func (s *State) Init() {
 		ChannelAdjustmentEnabled: false,
 		ChannelAdjustment:        [3]float32{1.0, 1.0, 1.0},
 	}
+	s.QuantizationKmeansIterations = 10 // adjust for perf
 	//load the image from the file
 	s.ShownImage = rl.LoadImage("resources/image.png")
 
@@ -153,6 +228,9 @@ func (s *State) Init() {
 	}
 	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
 	s.WorkingImage = s.OrigImage
+
+	// generate the image colour palette
+	s.GenerateImagePalette()
 
 	//send the image to the GPU
 	// rl.UpdateTexture(s.CurrentTexture, Uint8SliceToRGBASlice(s.OrigImage.Pix))
