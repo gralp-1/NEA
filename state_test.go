@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"slices"
 	"testing"
 )
 
@@ -34,4 +35,49 @@ func TestGrayscale(t *testing.T) {
 			t.Error("Grayscale filter mutated alpha values: ", s.WorkingImage.Pix)
 		}
 	})
+}
+
+func TestQuantization(t *testing.T) {
+	t.Run("Simple Quantization", func(t *testing.T) {
+		s := State{
+			WorkingImage: image.RGBA{
+				Pix: []uint8{255, 0, 0, 255, 0, 99, 0, 255}, // Red, Green
+			},
+		}
+		s.QuantizingFilter()
+
+	})
+}
+
+func TestRemoveDuplicates(t *testing.T) {
+	t.Run("No duplicates", func(t *testing.T) {
+		input := []int{1, 2, 3, 4, 5}
+		if slices.Compare(removeDuplicates(input), input) != 0 {
+			t.Fail()
+		}
+	})
+	t.Run("Some duplicates", func(t *testing.T) {
+		input := []int{1, 1, 2, 3, 4}
+		if slices.Compare(removeDuplicates(input), []int{1, 2, 3, 4}) != 0 {
+			t.Fail()
+		}
+	})
+	t.Run("All duplicates", func(t *testing.T) {
+		input := []int{1, 1, 1, 1, 1}
+		if slices.Compare(removeDuplicates(input), []int{1}) != 0 {
+			t.Fail()
+		}
+	})
+}
+
+func TestImagePallette(t *testing.T) {
+	t.Run("Palletisation", func(t *testing.T) {
+		s := State{
+			WorkingImage: image.RGBA{
+				Pix: []uint8{255, 0, 0, 255, 0, 99, 0, 255}, // Red, Green
+			},
+		}
+		s.GenerateImagePalette()
+	})
+	// t.Run("Multiple colour reduction", f func(t *testing.T))
 }

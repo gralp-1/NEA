@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"image"
 	"math"
+	"math/rand"
+	"time"
 
+	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
-	set "github.com/golang-collections/collections/set"
 )
 
 type State struct {
@@ -15,8 +17,9 @@ type State struct {
 	OrigImage                    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
 	WorkingImage                 image.RGBA
 	ShownImage                   *rl.Image
-	ImagePalette                 set.Set
+	ImagePalette                 []rl.Color
 	QuantizationKmeansIterations int
+	FilterWindow                 FilterOrderWindow
 
 	// This is the texture that
 	CurrentTexture   rl.Texture2D
@@ -24,6 +27,28 @@ type State struct {
 
 	// UI
 	Filters Filters
+}
+
+type FilterOrderWindow struct {
+	Showing bool
+	X       int32
+	Y       int32
+	order   []int
+}
+
+func (f *FilterOrderWindow) New() FilterOrderWindow {
+	return FilterOrderWindow{
+		Showing: false,
+		X:       100,
+		Y:       100,
+	}
+}
+func (f *FilterOrderWindow) getRect() rl.Rectangle {
+	return rl.NewRectangle(float32(f.X), float32(f.Y), 300.0, 200.0)
+}
+func (f *FilterOrderWindow) Draw() {
+	f.Showing = !gui.WindowBox(f.getRect(), "Filter Order Configuration")
+
 }
 
 type Filters struct {
@@ -34,22 +59,86 @@ type Filters struct {
 	DitheringLevel           int
 	ChannelAdjustmentEnabled bool
 	ChannelAdjustment        [3]float32
+	order                    [4]string
+}
+
+func (f *Filters) getOrderString() string {
+	return slices.Concatenate(";", f.order)[1:]
 }
 
 func (s *State) GetImageColours() []rl.Color {
-	pixels := make([]rl.Color, len(s.OrigImage.Pix)/4, len(s.OrigImage.Pix)/4)
-	for idx := range s.OrigImage.Pix {
-		pixels[idx/4] = rl.Color{R: s.OrigImage.Pix[idx], G: s.OrigImage.Pix[idx+1], B: s.OrigImage.Pix[idx+2], A: s.OrigImage.Pix[idx+3]}
-		idx += 4
+	pixels := make([]rl.Color, len(s.OrigImage.Pix)/4)
+	for idx := 0; idx < len(s.OrigImage.Pix)/4; idx += 4 {
+		pixels[idx] = rl.Color{R: s.OrigImage.Pix[idx], G: s.OrigImage.Pix[idx+1], B: s.OrigImage.Pix[idx+2], A: s.OrigImage.Pix[idx+3]}
 	}
 	return pixels
 }
+
+// TODO: move to utils
+func removeDuplicates[T comparable](s []T) []T {
+	seen := make(map[T]bool)
+	var result []T
+	for _, v := range s {
+		if !seen[v] {
+			result = append(result, v)
+			seen[v] = true
+		}
+	}
+	return result
+}
+
+func (s *State) GenerateNoiseImage(w, h int) {
+	DebugLog("Generating noise image")
+	seed := time.Now().Unix()
+	rng := rand.New(rand.NewSource(seed))
+	image := make([]uint8, w*h*4, w*h*4) // pixels * channels
+	for i := 0; i < w*h*4; i += 4 {
+		image[i+0] = uint8(rng.Intn(256))
+		image[i+1] = uint8(rng.Intn(256))
+		image[i+2] = uint8(rng.Intn(256))
+		image[i+3] = 255
+	}
+	rlImage := rl.NewImage(image, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8)
+	s.LoadImage(rlImage)
+	s.RefreshImage()
+}
+func (s *State) RefreshImage() {
+	start := time.Now()
+	s.ApplyFilters()
+	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
+	elapsed := time.Since(start)
+	DebugLogf("Refreshing image took %v", elapsed.String())
+}
+
+func (s *State) LoadImage(img *rl.Image) {
+	DebugLog("Loading image")
+	// load the image from the file
+	s.ShownImage = img
+
+	// resize the image to fit the window on its largest axis
+	// aspectRatio := float64(s.ShownImage.Width) / float64(s.ShownImage.Height)
+	// TODO: figure out how to resize
+	// if it's longer on the x axis
+	// if aspectRatio > 1.0 {
+	// 	rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float64(rl.GetScreenWidth())/aspectRatio))
+	// } else {
+	// 	// it's longer on the y axis
+	// 	rl.ImageResizeNN(s.ShownImage, int32(float64(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
+	// }
+	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
+	s.WorkingImage = s.OrigImage
+
+}
 func (s *State) GenerateImagePalette() {
+	DebugLog("Generating Image palette")
 	// for each image
-	s.ImagePalette = *set.New(s.GetImageColours())
+	s.ImagePalette = removeDuplicates(s.GetImageColours())
+	DebugLogf("Image Pallete Length: %v", len(s.ImagePalette))
+	DebugLogf("Unique colour ratio: %f%%", (float64(len(s.ImagePalette))/float64(len(s.OrigImage.Pix)/4))*100)
 }
 
 func (s *State) GrayscaleFilter() {
+	DebugLog("Grayscale filter applied")
 	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
 		mean := uint8((int(s.WorkingImage.Pix[i]) + int(s.WorkingImage.Pix[i+1]) + int(s.WorkingImage.Pix[i+2])) / 3)
 		s.WorkingImage.Pix[i+0] = mean
@@ -58,76 +147,8 @@ func (s *State) GrayscaleFilter() {
 	}
 }
 
-type Integer interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | // unsigned
-		~int | ~int8 | ~int16 | ~int32 | ~int64 // signed
-}
-
-type ClusteredColour struct {
-	colour  rl.Color
-	cluster int
-}
-
-func Dist[T Integer](args ...T) float64 {
-	var sum float64 = 0
-	for _, v := range args {
-		sum += float64(v * v)
-	}
-	return math.Sqrt(sum)
-}
-
-func Nearest(p ClusteredColour, mean []rl.Color) (int, float64) {
-	iMin := 0
-	dMin := Dist(p.colour.R-mean[0].R, p.colour.G-mean[0].G, p.colour.B-mean[0].B)
-	for i := 1; i < len(mean); i++ {
-		d := Dist(p.colour.R-mean[i].R, p.colour.G-mean[i].G, p.colour.B-mean[i].B)
-		if d < dMin {
-			dMin = d
-			iMin = i
-		}
-	}
-	return iMin, dMin
-}
-
-func (s *State) KMeansQuantizingFilter(data []ClusteredColour, mean []rl.Color) {
-	// initial assignment
-	for i, p := range data {
-		cMin, _ := Nearest(p, mean)
-		data[i].cluster = cMin
-	}
-	mLen := make([]int, len(mean))
-	for {
-		// update means
-		for i := range mean {
-			mean[i] = rl.Color{}
-			mLen[i] = 0
-		}
-		for _, p := range data {
-			mean[p.cluster].R += p.colour.R
-			mean[p.cluster].R += p.colour.G
-			mean[p.cluster].R += p.colour.B
-			mLen[p.cluster]++
-		}
-		for i := range mean {
-			inv := 1 / float64(mLen[i])
-			mean[i].R = uint8(inv * float64(mean[i].R))
-			mean[i].G = uint8(inv * float64(mean[i].G))
-			mean[i].B = uint8(inv * float64(mean[i].B))
-		}
-		// make new assignments, count changes
-		var changes int
-		for i, p := range data {
-			if cMin, _ := Nearest(p, mean); cMin != p.cluster {
-				changes++
-				data[i].cluster = cMin
-			}
-		}
-		if changes == 0 {
-			return
-		}
-	}
-}
 func (s *State) QuantizingFilter() {
+	DebugLog("Quantizing filter applied")
 	// maybe preserve current code and make a "simple" and "accurate" mode
 	// this is an NP-hard algorithm as we need to ca
 	// We need to do k means clustering on the pixel space
@@ -171,7 +192,16 @@ func (s *State) QuantizingFilter() {
 //	}
 //}
 
+func (s *State) TintFilter() {
+	DebugLog("Tint filter applied")
+	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
+		s.WorkingImage.Pix[i+0] = uint8(float32(s.WorkingImage.Pix[i+0]) * s.Filters.ChannelAdjustment[0])
+		s.WorkingImage.Pix[i+1] = uint8(float32(s.WorkingImage.Pix[i+1]) * s.Filters.ChannelAdjustment[1])
+		s.WorkingImage.Pix[i+2] = uint8(float32(s.WorkingImage.Pix[i+2]) * s.Filters.ChannelAdjustment[2])
+	}
+}
 func (s *State) ApplyFilters() {
+	// TODO: make sure to do them in order
 	InfoLog("Applying filters")
 	DebugLogf("Current filters: %+v", s.Filters) // %+v prints a struct with field names
 	// set the shown image to the unmodified image
@@ -180,23 +210,18 @@ func (s *State) ApplyFilters() {
 		FatalLog("Pixels copied incorrectly")
 	}
 
-	// for each filter, apply it to the shown image
-	if s.Filters.IsGrayscaleEnabled {
-		DebugLog("Grayscale filter applied")
-		s.GrayscaleFilter()
-	}
-	if s.Filters.ChannelAdjustmentEnabled {
-		DebugLog("Channel adjustment applied")
-		for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
-			s.WorkingImage.Pix[i+0] = uint8(float32(s.WorkingImage.Pix[i+0]) * s.Filters.ChannelAdjustment[0])
-			s.WorkingImage.Pix[i+1] = uint8(float32(s.WorkingImage.Pix[i+1]) * s.Filters.ChannelAdjustment[1])
-			s.WorkingImage.Pix[i+2] = uint8(float32(s.WorkingImage.Pix[i+2]) * s.Filters.ChannelAdjustment[2])
+	for k, _ := range s.Filters.order {
 
+		// for each filter, apply it to the shown image
+		if s.Filters.IsGrayscaleEnabled && k == "Grayscale" {
+			s.GrayscaleFilter()
 		}
-	}
-	if s.Filters.IsQuantizingEnabled {
-		DebugLog("Quantizing applied")
-		s.QuantizingFilter()
+		if s.Filters.ChannelAdjustmentEnabled && k == "Tint" {
+			s.TintFilter()
+		}
+		if s.Filters.IsQuantizingEnabled && k == "Quantizing" {
+			s.QuantizingFilter()
+		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
 }
@@ -211,6 +236,12 @@ func (s *State) Init() {
 		QuantizingBands:          50,
 		ChannelAdjustmentEnabled: false,
 		ChannelAdjustment:        [3]float32{1.0, 1.0, 1.0},
+		Order:                    [4]string{"Grayscale", "Quantizing", "Dithering", "Tinting"}, // initial order
+	}
+	s.FilterWindow = FilterOrderWindow{
+		Showing: false,
+		X:       10,
+		Y:       10,
 	}
 	s.QuantizationKmeansIterations = 10 // adjust for perf
 	//load the image from the file

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"image/png"
 	"math"
 	"os"
@@ -35,17 +34,21 @@ func main() {
 		// apply all the filters
 		// only reload the texture if the filters have changed because it's quite slow
 		if oldFilters != state.Filters {
-			InfoLog("Filters changed")
-			state.ApplyFilters()
-			// NOTE: Write about the performance and how it impacts UX and stuff
-			start := time.Now()
-			state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
-			DebugLogf("Time to update texture: %s", time.Since(start).String())
-			// rl.UpdateTexture(state.CurrentTexture, Uint8SliceToRGBASlice(state.OrigImage.Pix))
+			state.RefreshImage()
 		}
 		oldFilters = state.Filters
 		rl.DrawTexture(state.CurrentTexture, 0, 0, rl.White)
 
+		if rl.IsKeyPressed(rl.KeyG) {
+			state.GenerateNoiseImage(500, 500)
+		}
+		if rl.IsKeyPressed(rl.KeyC) {
+			state.FilterWindow.Showing = true
+		}
+		if state.FilterWindow.Showing {
+			// Draw the filter order window
+			state.FilterWindow.Draw()
+		}
 		// DRAW UI
 		state.Filters.IsGrayscaleEnabled = gui.CheckBox(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 10, 10, 10),
@@ -59,10 +62,10 @@ func main() {
 		)
 		state.Filters.QuantizingBands = uint8(math.Trunc(float64(gui.Slider(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 50, 100, 10),
-			fmt.Sprintf("Quantization bands: %d   0", state.Filters.QuantizingBands),
+			fmt.Sprintf("Quantization bands: %d   3", state.Filters.QuantizingBands),
 			"255",
 			float32(state.Filters.QuantizingBands),
-			0.0,
+			3.0,
 			16.0,
 		))))
 		state.Filters.ChannelAdjustmentEnabled = gui.CheckBox(
