@@ -43,13 +43,6 @@ func main() {
 		if rl.IsKeyPressed(rl.KeyG) {
 			state.GenerateNoiseImage(500, 500)
 		}
-		if rl.IsKeyPressed(rl.KeyC) {
-			state.FilterWindow.Showing = true
-		}
-		if state.FilterWindow.Showing {
-			// Draw the filter Order window
-			state.FilterWindow.Draw()
-		}
 		// DRAW UI
 		state.Filters.IsGrayscaleEnabled = gui.CheckBox(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 10, 10, 10),
@@ -104,6 +97,14 @@ func main() {
 			0.0,
 			1.0,
 		)
+		if rl.IsKeyPressed(rl.KeyC) {
+			// TODO: offset the window so none of it ever draws outside the window
+			state.FilterWindow.Anchor = rl.GetMousePosition()
+			state.FilterWindow.Showing = !state.FilterWindow.Showing
+		}
+		if state.FilterWindow.Showing {
+			state.FilterWindow.Draw()
+		}
 
 		newFiltersHash, _ := structhash.Hash(state.Filters, 1)
 		if strings.Compare(newFiltersHash, oldFiltersHash) != 0 {

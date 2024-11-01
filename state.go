@@ -39,13 +39,6 @@ type FilterOrderWindow struct {
 	Active      int32
 }
 
-func (f *FilterOrderWindow) PromoteSelected() {
-
-}
-func (f *FilterOrderWindow) DemoteSelected() {
-
-}
-
 func (f *FilterOrderWindow) New() FilterOrderWindow {
 	return FilterOrderWindow{
 		Showing: false,
@@ -53,37 +46,44 @@ func (f *FilterOrderWindow) New() FilterOrderWindow {
 	}
 }
 func (f *FilterOrderWindow) getRect() rl.Rectangle {
-	return rl.NewRectangle(f.Anchor.X, f.Anchor.Y, 300.0, 200.0)
+	return rl.NewRectangle(f.Anchor.X, f.Anchor.Y, 300, 260)
 }
 func (f *FilterOrderWindow) Draw() {
 	f.Showing = !gui.WindowBox(f.getRect(), "Filter Order Configuration")
+	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
+	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+30, 100, 10), "Applied first")
 	f.Active = gui.ListView(
-		rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+10, 100, 180),
+		rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+50, 100, 180),
 		state.Filters.GetFiltersListViewString(),
 		&f.ScrollIndex,
 		f.Active,
 	)
-	// Demote button
+	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+240, 100, 10), "Applied last")
+	// Promote button
 	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+30, 100, 50), "Promote Selected") {
-		if f.Active == 0 {
-			DebugLogf("Attempted to promote first index", f.Active)
-		} else {
-			state.Filters.Order[f.Active], state.Filters.Order[f.Active-1] = state.Filters.Order[f.Active-1], state.Filters.Order[f.Active]
-			f.Active--
-			state.RefreshImage()
-			DebugLogf("Attempted to promote index %d", f.Active)
-		}
+		f.Promote()
 	}
 	// Demote button
 	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+80, 100, 50), "Demote Selected") {
-		if f.Active == FILTER_COUNT-1 {
-			DebugLogf("Attempted to demote last index")
-		} else {
-			DebugLogf("Attempted to demote index %d", f.Active)
-			state.Filters.Order[f.Active], state.Filters.Order[f.Active+1] = state.Filters.Order[f.Active+1], state.Filters.Order[f.Active]
-			f.Active++
-			state.RefreshImage()
-		}
+		f.Demote()
+	}
+}
+func (f *FilterOrderWindow) Promote() {
+	if f.Active == 0 {
+		DebugLog("Attempted to promote first index")
+	} else {
+		state.Filters.Order[f.Active], state.Filters.Order[f.Active-1] = state.Filters.Order[f.Active-1], state.Filters.Order[f.Active]
+		f.Active--
+		state.RefreshImage()
+	}
+}
+func (f *FilterOrderWindow) Demote() {
+	if f.Active == FILTER_COUNT-1 {
+		DebugLog("Attempted to demote last index")
+	} else {
+		state.Filters.Order[f.Active], state.Filters.Order[f.Active+1] = state.Filters.Order[f.Active+1], state.Filters.Order[f.Active]
+		f.Active++
+		state.RefreshImage()
 	}
 }
 
