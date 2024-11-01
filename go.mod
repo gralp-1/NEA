@@ -10,9 +10,8 @@ require (
 )
 
 require (
-	github.com/AllenDang/cimgui-go v1.0.2
+	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08
 	github.com/fatih/color v1.17.0
-	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 )
 
 require (

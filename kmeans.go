@@ -1,11 +1,16 @@
 package main
 
+import (
+	rl "github.com/gen2brain/raylib-go/raylib"
+	"math"
+)
+
 type ClusteredColour struct {
 	colour  rl.Color
 	cluster int
 }
 
-func Dist(args ...int) float64 {
+func Dist(args ...uint8) float64 {
 	var sum float64 = 0
 	for _, v := range args {
 		sum += float64(v * v)

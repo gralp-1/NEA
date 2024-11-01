@@ -5,11 +5,14 @@ import (
 	"image"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
+
+const FILTER_COUNT = 4
 
 type State struct {
 
@@ -30,25 +33,58 @@ type State struct {
 }
 
 type FilterOrderWindow struct {
-	Showing bool
-	X       int32
-	Y       int32
-	order   []int
+	Showing     bool
+	Anchor      rl.Vector2
+	ScrollIndex int32
+	Active      int32
+}
+
+func (f *FilterOrderWindow) PromoteSelected() {
+
+}
+func (f *FilterOrderWindow) DemoteSelected() {
+
 }
 
 func (f *FilterOrderWindow) New() FilterOrderWindow {
 	return FilterOrderWindow{
 		Showing: false,
-		X:       100,
-		Y:       100,
+		Anchor:  rl.Vector2{X: 150, Y: 150},
 	}
 }
 func (f *FilterOrderWindow) getRect() rl.Rectangle {
-	return rl.NewRectangle(float32(f.X), float32(f.Y), 300.0, 200.0)
+	return rl.NewRectangle(f.Anchor.X, f.Anchor.Y, 300.0, 200.0)
 }
 func (f *FilterOrderWindow) Draw() {
 	f.Showing = !gui.WindowBox(f.getRect(), "Filter Order Configuration")
-
+	f.Active = gui.ListView(
+		rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+10, 100, 180),
+		state.Filters.GetFiltersListViewString(),
+		&f.ScrollIndex,
+		f.Active,
+	)
+	// Demote button
+	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+30, 100, 50), "Promote Selected") {
+		if f.Active == 0 {
+			DebugLogf("Attempted to promote first index", f.Active)
+		} else {
+			state.Filters.Order[f.Active], state.Filters.Order[f.Active-1] = state.Filters.Order[f.Active-1], state.Filters.Order[f.Active]
+			f.Active--
+			state.RefreshImage()
+			DebugLogf("Attempted to promote index %d", f.Active)
+		}
+	}
+	// Demote button
+	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+80, 100, 50), "Demote Selected") {
+		if f.Active == FILTER_COUNT-1 {
+			DebugLogf("Attempted to demote last index")
+		} else {
+			DebugLogf("Attempted to demote index %d", f.Active)
+			state.Filters.Order[f.Active], state.Filters.Order[f.Active+1] = state.Filters.Order[f.Active+1], state.Filters.Order[f.Active]
+			f.Active++
+			state.RefreshImage()
+		}
+	}
 }
 
 type Filters struct {
@@ -59,11 +95,11 @@ type Filters struct {
 	DitheringLevel           int
 	ChannelAdjustmentEnabled bool
 	ChannelAdjustment        [3]float32
-	order                    [4]string
+	Order                    [FILTER_COUNT]string
 }
 
-func (f *Filters) getOrderString() string {
-	return slices.Concatenate(";", f.order)[1:]
+func (f *Filters) GetFiltersListViewString() string {
+	return strings.Join(f.Order[:], ";")
 }
 
 func (s *State) GetImageColours() []rl.Color {
@@ -91,14 +127,14 @@ func (s *State) GenerateNoiseImage(w, h int) {
 	DebugLog("Generating noise image")
 	seed := time.Now().Unix()
 	rng := rand.New(rand.NewSource(seed))
-	image := make([]uint8, w*h*4, w*h*4) // pixels * channels
+	imageSlice := make([]uint8, w*h*4) // pixels * channels
 	for i := 0; i < w*h*4; i += 4 {
-		image[i+0] = uint8(rng.Intn(256))
-		image[i+1] = uint8(rng.Intn(256))
-		image[i+2] = uint8(rng.Intn(256))
-		image[i+3] = 255
+		imageSlice[i+0] = uint8(rng.Intn(256))
+		imageSlice[i+1] = uint8(rng.Intn(256))
+		imageSlice[i+2] = uint8(rng.Intn(256))
+		imageSlice[i+3] = 255
 	}
-	rlImage := rl.NewImage(image, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8)
+	rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8)
 	s.LoadImage(rlImage)
 	s.RefreshImage()
 }
@@ -157,7 +193,7 @@ func (s *State) QuantizingFilter() {
 
 	quantizationBandWidth := 255 / float64(state.Filters.QuantizingBands-1)
 	// floor(x/bandWidth)*bandWidth + bandWidth/2
-	// FIXME this is terrible, doesnn't work and crashes in weird edge cases
+	// FIXME this is terrible, doesn't work and crashes in weird edge cases
 	res := make([]uint8, len(s.WorkingImage.Pix))
 	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
 		if i == 100 {
@@ -201,7 +237,7 @@ func (s *State) TintFilter() {
 	}
 }
 func (s *State) ApplyFilters() {
-	// TODO: make sure to do them in order
+	// TODO: make sure to do them in Order
 	InfoLog("Applying filters")
 	DebugLogf("Current filters: %+v", s.Filters) // %+v prints a struct with field names
 	// set the shown image to the unmodified image
@@ -210,7 +246,7 @@ func (s *State) ApplyFilters() {
 		FatalLog("Pixels copied incorrectly")
 	}
 
-	for k, _ := range s.Filters.order {
+	for _, k := range s.Filters.Order {
 
 		// for each filter, apply it to the shown image
 		if s.Filters.IsGrayscaleEnabled && k == "Grayscale" {
@@ -222,10 +258,19 @@ func (s *State) ApplyFilters() {
 		if s.Filters.IsQuantizingEnabled && k == "Quantizing" {
 			s.QuantizingFilter()
 		}
+		if s.Filters.IsDitheringEnabled && k == "Dithering" {
+			s.Dither()
+		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
 }
+func (s *State) Dither() {
+	InfoLog("Attempted to dither filter")
+	rl.ImageDither(s.ShownImage, 5, 5, 5, 5)
+}
 
+// TODO: add labels to the top and bottom to show first and last initialized
+// TODO: make sure the features in the filter change window line up properly
 func (s *State) Init() {
 	InfoLog("Initialising state")
 	s.Filters = Filters{
@@ -236,12 +281,11 @@ func (s *State) Init() {
 		QuantizingBands:          50,
 		ChannelAdjustmentEnabled: false,
 		ChannelAdjustment:        [3]float32{1.0, 1.0, 1.0},
-		Order:                    [4]string{"Grayscale", "Quantizing", "Dithering", "Tinting"}, // initial order
+		Order:                    [4]string{"Grayscale", "Quantizing", "Dithering", "Tint"}, // initial Order
 	}
 	s.FilterWindow = FilterOrderWindow{
 		Showing: false,
-		X:       10,
-		Y:       10,
+		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
 	s.QuantizationKmeansIterations = 10 // adjust for perf
 	//load the image from the file

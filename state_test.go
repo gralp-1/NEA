@@ -81,3 +81,5 @@ func TestImagePallette(t *testing.T) {
 	})
 	// t.Run("Multiple colour reduction", f func(t *testing.T))
 }
+
+// TODO: test ordered non-commutative filters
