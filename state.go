@@ -3,16 +3,19 @@ package main
 import (
 	"bytes"
 	"image"
+	"image/color"
+	"image/png"
 	"math"
 	"math/rand"
+	"os"
+	"slices"
 	"strings"
 	"time"
 
-	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const FILTER_COUNT = 4
+const FilterCount = 4
 
 type State struct {
 
@@ -21,8 +24,16 @@ type State struct {
 	WorkingImage                 image.RGBA
 	ShownImage                   *rl.Image
 	ImagePalette                 []rl.Color
-	QuantizationKmeansIterations int
-	FilterWindow                 FilterOrderWindow
+	QuantizationKMeansIterations int
+
+	FilterWindow   FilterOrderWindow
+	PaletteWindow  PaletteWindow
+	HelpWindow     HelpWindow
+	SaveLoadWindow SaveLoadWindow
+
+	RedHistogram   [256]int
+	BlueHistogram  [256]int
+	GreenHistogram [256]int
 
 	// This is the texture that
 	CurrentTexture   rl.Texture2D
@@ -32,74 +43,65 @@ type State struct {
 	Filters Filters
 }
 
-type FilterOrderWindow struct {
-	Showing     bool
-	Anchor      rl.Vector2
-	ScrollIndex int32
-	Active      int32
-}
-
-func (f *FilterOrderWindow) New() FilterOrderWindow {
-	return FilterOrderWindow{
-		Showing: false,
-		Anchor:  rl.Vector2{X: 150, Y: 150},
-	}
-}
-func (f *FilterOrderWindow) getRect() rl.Rectangle {
-	return rl.NewRectangle(f.Anchor.X, f.Anchor.Y, 300, 260)
-}
-func (f *FilterOrderWindow) Draw() {
-	f.Showing = !gui.WindowBox(f.getRect(), "Filter Order Configuration")
-	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
-	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+30, 100, 10), "Applied first")
-	f.Active = gui.ListView(
-		rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+50, 100, 180),
-		state.Filters.GetFiltersListViewString(),
-		&f.ScrollIndex,
-		f.Active,
-	)
-	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+240, 100, 10), "Applied last")
-	// Promote button
-	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+30, 100, 50), "Promote Selected") {
-		f.Promote()
-	}
-	// Demote button
-	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+80, 100, 50), "Demote Selected") {
-		f.Demote()
-	}
-}
-func (f *FilterOrderWindow) Promote() {
-	if f.Active == 0 {
-		DebugLog("Attempted to promote first index")
-	} else {
-		state.Filters.Order[f.Active], state.Filters.Order[f.Active-1] = state.Filters.Order[f.Active-1], state.Filters.Order[f.Active]
-		f.Active--
-		state.RefreshImage()
-	}
-}
-func (f *FilterOrderWindow) Demote() {
-	if f.Active == FILTER_COUNT-1 {
-		DebugLog("Attempted to demote last index")
-	} else {
-		state.Filters.Order[f.Active], state.Filters.Order[f.Active+1] = state.Filters.Order[f.Active+1], state.Filters.Order[f.Active]
-		f.Active++
-		state.RefreshImage()
-	}
-}
-
 type Filters struct {
-	IsGrayscaleEnabled       bool
-	IsQuantizingEnabled      bool
-	QuantizingBands          uint8
-	IsDitheringEnabled       bool
-	DitheringLevel           int
-	ChannelAdjustmentEnabled bool
-	ChannelAdjustment        [3]float32
-	Order                    [FILTER_COUNT]string
+	IsGrayscaleEnabled           bool
+	IsQuantizingEnabled          bool
+	QuantizingBands              uint8
+	IsDitheringEnabled           bool
+	DitheringQuantizationBuckets uint8
+	ChannelAdjustmentEnabled     bool
+	ChannelAdjustment            [3]float32
+	Order                        [FilterCount]string
 }
 
-func (f *Filters) GetFiltersListViewString() string {
-	return strings.Join(f.Order[:], ";")
+type ColourHistogram struct {
+	RedChannel   map[uint8]int
+	GreenChannel map[uint8]int
+	BlueChannel  map[uint8]int
+}
+
+func (h *ColourHistogram) ConstructHistogram() {
+	h.RedChannel = make(map[uint8]int, 256)
+	h.GreenChannel = make(map[uint8]int, 256)
+	h.BlueChannel = make(map[uint8]int, 256)
+	for y := 0; y < state.WorkingImage.Rect.Dy(); y++ {
+		for x := 0; x < state.WorkingImage.Rect.Dx(); x++ {
+			r, g, b, _ := state.WorkingImage.At(x, y).RGBA()
+			h.RedChannel[uint8(r)] += 1
+			h.GreenChannel[uint8(g)] += 1
+			h.BlueChannel[uint8(b)] += 1
+		}
+	}
+}
+
+func pixelToRlColor(col color.RGBA) rl.Color { // inline cast
+	r, g, b, a := col.RGBA()
+	return rl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
+}
+
+func (s *State) ConstructPalette() {
+	pal := make(map[rl.Color]float64)
+	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
+		r := s.WorkingImage.Pix[i]
+		g := s.WorkingImage.Pix[i+1]
+		b := s.WorkingImage.Pix[i+2]
+		pal[rl.Color{R: r, G: g, B: b, A: 255}] = 0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b)
+	}
+	colours := make([]rl.Color, 0, len(pal))
+	for k, _ := range pal {
+		colours = append(colours, k)
+	}
+	slices.SortFunc(colours, func(a, b rl.Color) int {
+		if pal[a] > pal[b] {
+			return -1
+		}
+		return 1
+	})
+	state.ImagePalette = colours
+}
+
+func (s *State) GetFiltersListViewString() string {
+	return strings.Join(s.Filters.Order[:], ";")
 }
 
 func (s *State) GetImageColours() []rl.Color {
@@ -109,18 +111,15 @@ func (s *State) GetImageColours() []rl.Color {
 	}
 	return pixels
 }
-
-// TODO: move to utils
-func removeDuplicates[T comparable](s []T) []T {
-	seen := make(map[T]bool)
-	var result []T
-	for _, v := range s {
-		if !seen[v] {
-			result = append(result, v)
-			seen[v] = true
-		}
+func (s *State) GenerateHistogram() {
+	s.RedHistogram = [256]int{}
+	s.GreenHistogram = [256]int{}
+	s.BlueHistogram = [256]int{}
+	for _, col := range PixSliceToColourSlice(state.WorkingImage.Pix) {
+		s.RedHistogram[col.R]++
+		s.GreenHistogram[col.G]++
+		s.BlueHistogram[col.B]++
 	}
-	return result
 }
 
 func (s *State) GenerateNoiseImage(w, h int) {
@@ -134,43 +133,28 @@ func (s *State) GenerateNoiseImage(w, h int) {
 		imageSlice[i+2] = uint8(rng.Intn(256))
 		imageSlice[i+3] = 255
 	}
-	rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8)
-	s.LoadImage(rlImage)
+	rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
+	s.LoadImage(&rlImage)
 	s.RefreshImage()
 }
 func (s *State) RefreshImage() {
+	// CONSTRUCT IMAGE PALETTE MAP
 	start := time.Now()
 	s.ApplyFilters()
 	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
+	s.ConstructPalette()
+	s.GenerateHistogram()
 	elapsed := time.Since(start)
 	DebugLogf("Refreshing image took %v", elapsed.String())
 }
 
-func (s *State) LoadImage(img *rl.Image) {
+func (s *State) LoadImage(img *image.Image) {
 	DebugLog("Loading image")
 	// load the image from the file
-	s.ShownImage = img
-
-	// resize the image to fit the window on its largest axis
-	// aspectRatio := float64(s.ShownImage.Width) / float64(s.ShownImage.Height)
-	// TODO: figure out how to resize
-	// if it's longer on the x axis
-	// if aspectRatio > 1.0 {
-	// 	rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float64(rl.GetScreenWidth())/aspectRatio))
-	// } else {
-	// 	// it's longer on the y axis
-	// 	rl.ImageResizeNN(s.ShownImage, int32(float64(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
-	// }
-	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
+	s.ShownImage = rl.NewImageFromImage(*img)
+	s.OrigImage = *(*img).(*image.RGBA) // WHAT THE FUCK
 	s.WorkingImage = s.OrigImage
 
-}
-func (s *State) GenerateImagePalette() {
-	DebugLog("Generating Image palette")
-	// for each image
-	s.ImagePalette = removeDuplicates(s.GetImageColours())
-	DebugLogf("Image Pallete Length: %v", len(s.ImagePalette))
-	DebugLogf("Unique colour ratio: %f%%", (float64(len(s.ImagePalette))/float64(len(s.OrigImage.Pix)/4))*100)
 }
 
 func (s *State) GrayscaleFilter() {
@@ -236,8 +220,42 @@ func (s *State) TintFilter() {
 		s.WorkingImage.Pix[i+2] = uint8(float32(s.WorkingImage.Pix[i+2]) * s.Filters.ChannelAdjustment[2])
 	}
 }
+
+// TODO: add a save & load menu with a drag and drop box
+
+func (s *State) quantizeValue(v uint8) uint8 {
+	// TODO: make some adjustable curve??
+	bandCount := s.Filters.DitheringQuantizationBuckets
+	bandWidth := uint8(math.Floor(255 / float64(bandCount)))
+	for i := range bandCount + 1 {
+		if (bandCount-i)*bandWidth < v {
+			return bandWidth * (bandCount - i)
+		}
+	}
+	return 0
+}
+func (s *State) DitheringFilter() {
+	bounds := s.WorkingImage.Bounds()
+	for y := 0; y < bounds.Dy(); y++ {
+		for x := 0; x < bounds.Dx(); x++ {
+			oldR, oldG, oldB, _ := s.WorkingImage.At(x, y).RGBA()
+			newR := s.quantizeValue(uint8(oldR)) // TODO: This is too aggressive
+			newG := s.quantizeValue(uint8(oldG))
+			newB := s.quantizeValue(uint8(oldB))
+			s.WorkingImage.SetRGBA(x, y, color.RGBA{R: newR, G: newG, B: newB, A: 255})
+
+			errR := uint8(oldR) - newR
+			errG := uint8(oldG) - newG
+			errB := uint8(oldB) - newB
+			distributeError(&s.WorkingImage, x+1, y+0, errR, errG, errB, 7.0/16.0) // direct right
+			distributeError(&s.WorkingImage, x-1, y+1, errR, errG, errB, 3.0/16.0) // top left
+			distributeError(&s.WorkingImage, x+0, y+1, errR, errG, errB, 5.0/16.0) // top
+			distributeError(&s.WorkingImage, x+1, y+1, errR, errG, errB, 1.0/16.0) // bottom right
+		}
+	}
+}
+
 func (s *State) ApplyFilters() {
-	// TODO: make sure to do them in Order
 	InfoLog("Applying filters")
 	DebugLogf("Current filters: %+v", s.Filters) // %+v prints a struct with field names
 	// set the shown image to the unmodified image
@@ -259,35 +277,41 @@ func (s *State) ApplyFilters() {
 			s.QuantizingFilter()
 		}
 		if s.Filters.IsDitheringEnabled && k == "Dithering" {
-			s.Dither()
+			s.DitheringFilter()
 		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
 }
-func (s *State) Dither() {
-	InfoLog("Attempted to dither filter")
-	rl.ImageDither(s.ShownImage, 5, 5, 5, 5)
-}
 
-// TODO: add labels to the top and bottom to show first and last initialized
-// TODO: make sure the features in the filter change window line up properly
 func (s *State) Init() {
 	InfoLog("Initialising state")
 	s.Filters = Filters{
-		IsGrayscaleEnabled:       false,
-		IsDitheringEnabled:       false,
-		DitheringLevel:           4,
-		IsQuantizingEnabled:      false,
-		QuantizingBands:          50,
-		ChannelAdjustmentEnabled: false,
-		ChannelAdjustment:        [3]float32{1.0, 1.0, 1.0},
-		Order:                    [4]string{"Grayscale", "Quantizing", "Dithering", "Tint"}, // initial Order
+		IsGrayscaleEnabled:           false,
+		IsDitheringEnabled:           false,
+		DitheringQuantizationBuckets: 190,
+		IsQuantizingEnabled:          false,
+		QuantizingBands:              50,
+		ChannelAdjustmentEnabled:     false,
+		ChannelAdjustment:            [3]float32{1.0, 1.0, 1.0},
+		Order:                        [4]string{"Grayscale", "Quantizing", "Dithering", "Tint"}, // initial Order
 	}
 	s.FilterWindow = FilterOrderWindow{
 		Showing: false,
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
-	s.QuantizationKmeansIterations = 10 // adjust for perf
+	s.PaletteWindow = PaletteWindow{
+		Showing: false,
+		Anchor:  rl.Vector2{X: 20, Y: 20},
+	}
+	s.HelpWindow = HelpWindow{
+		Showing: false,
+		Anchor:  rl.Vector2{X: 20, Y: 20},
+	}
+	s.SaveLoadWindow = SaveLoadWindow{
+		Showing: false,
+		Anchor:  rl.Vector2{X: 20, Y: 20},
+	}
+	s.QuantizationKMeansIterations = 10 // adjust for perf
 	//load the image from the file
 	s.ShownImage = rl.LoadImage("resources/image.png")
 
@@ -305,7 +329,7 @@ func (s *State) Init() {
 	s.WorkingImage = s.OrigImage
 
 	// generate the image colour palette
-	s.GenerateImagePalette()
+	s.ConstructPalette()
 
 	//send the image to the GPU
 	// rl.UpdateTexture(s.CurrentTexture, Uint8SliceToRGBASlice(s.OrigImage.Pix))
@@ -314,4 +338,9 @@ func (s *State) Init() {
 
 	//initialise everything else
 	s.BackgroundColour = rl.RayWhite
+}
+
+func (s *State) SaveImage() {
+	f, _ := os.Create("image.png")
+	_ = png.Encode(f, state.WorkingImage.SubImage(state.WorkingImage.Rect)) // what a stupid API
 }
