@@ -22,5 +22,5 @@ func (p *HelpWindow) Draw() {
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+50, 2_00, 30), "C - View palette")
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+70, 2_00, 30), "O - Change filter order window")
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+90, 2_00, 30), "S - Open save window")
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+110, 200, 30), "S - Open settings window")
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+110, 200, 30), ", - Open settings window")
 }

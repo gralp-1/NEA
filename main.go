@@ -14,7 +14,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type Language int
+type Language int32
 
 const (
 	English Language = iota
@@ -22,8 +22,8 @@ const (
 )
 
 type Config struct {
-	bg       rl.Color `json:bg`
-	language Language `json:lang`
+	bg       rl.Color
+	language Language
 }
 
 func NewConfig() Config {
@@ -60,9 +60,9 @@ func main() {
 		oldFiltersHash, _ = structhash.Hash(state.Filters, 1)
 		rl.DrawTexture(state.CurrentTexture, 0, 0, rl.White)
 
-		if rl.IsKeyPressed(rl.KeyG) {
-			state.GenerateNoiseImage(500, 500)
-		}
+		//if rl.IsKeyPressed(rl.KeyG) {
+		//	state.GenerateNoiseImage(500, 500)
+		//}
 		// DRAW UI
 		state.Filters.IsGrayscaleEnabled = gui.CheckBox(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 10, 10, 10),
@@ -160,15 +160,24 @@ func main() {
 			state.SaveLoadWindow.Showing = !state.SaveLoadWindow.Showing
 			state.SaveLoadWindow.InteractedWith = time.Now()
 		}
+		if rl.IsKeyPressed(rl.KeyComma) {
+			DebugLog("Opening settings window")
+			state.SettingsWindow.Anchor = rl.Vector2{
+				X: min(mousePos.X, float32(rl.GetScreenWidth()-int(state.SettingsWindow.getRect().Width))),
+				Y: min(mousePos.Y, float32(rl.GetScreenHeight()-int(state.SettingsWindow.getRect().Height))),
+			}
+			state.SettingsWindow.Showing = !state.SettingsWindow.Showing
+			state.SettingsWindow.InteractedWith = time.Now()
+		}
 		if rl.IsKeyPressed(rl.KeyQ) {
 			state.SaveImage()
 			rl.CloseWindow() // TODO: do this more cleanly, I think this is a wee bit leaky, state needs a de-init function
 			os.Exit(0)
 		}
 
+		times := []int64{state.HelpWindow.InteractedWith.Unix(), state.PaletteWindow.InteractedWith.Unix(), state.FilterWindow.InteractedWith.Unix(), state.SaveLoadWindow.InteractedWith.Unix(), state.SettingsWindow.InteractedWith.Unix()}
 		// make a list of the windows sorted by newest interacted with to new
 		// NOTE: need to modify this on new window
-		times := []int64{state.HelpWindow.InteractedWith.Unix(), state.PaletteWindow.InteractedWith.Unix(), state.FilterWindow.InteractedWith.Unix(), state.SaveLoadWindow.InteractedWith.Unix()}
 		slices.Sort(times)
 		for _, time := range times {
 			switch time {
@@ -188,8 +197,11 @@ func main() {
 				if state.SaveLoadWindow.Showing {
 					state.SaveLoadWindow.Draw()
 				}
+			case state.SettingsWindow.InteractedWith.Unix():
+				if state.SettingsWindow.Showing {
+					state.SettingsWindow.Draw()
+				}
 			}
-
 		}
 
 		newFiltersHash, _ := structhash.Hash(state.Filters, 1)
@@ -202,3 +214,5 @@ func main() {
 	}
 	state.SaveImage()
 }
+
+// BUG: QuantizeValue when BucketCount = 8 and 255

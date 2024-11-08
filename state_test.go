@@ -2,10 +2,7 @@ package main
 
 import (
 	"image"
-	"slices"
 	"testing"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func TestGrayscale(t *testing.T) {
@@ -50,16 +47,3 @@ func TestGrayscale(t *testing.T) {
 //
 //	})
 //}
-
-func TestImagePallette(t *testing.T) {
-	t.Run("Palletisation", func(t *testing.T) {
-		s := State{}
-		s.WorkingImage = image.RGBA{Pix: []uint8{255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255}}
-		s.ConstructPalette()
-		expected := []rl.Color{rl.Red, rl.Green, rl.Blue}
-		if !slices.Equal(s.ImagePalette, expected) {
-			t.Errorf("Expected r,g,b and got %v", s.ImagePalette)
-		}
-	})
-	// t.Run("Multiple colour reduction", f func(t *testing.T))
-}

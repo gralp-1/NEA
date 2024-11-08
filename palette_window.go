@@ -28,6 +28,7 @@ func (p *PaletteWindow) DrawHistogram(anchor rl.Vector2, data []int, colour rl.C
 	// TODO: overlay all at once with semi transparent fill
 	// TODO: line mode
 	// TODO: highlight hovered line and display tooltip with frequency
+	// TODO: make the histogram not just draw thin lines when quantized
 	data = data[1:]
 	largestFreq := slices.Max(data)
 	if largestFreq == 0 {

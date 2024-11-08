@@ -2,17 +2,14 @@ package main
 
 import (
 	"bytes"
+	rl "github.com/gen2brain/raylib-go/raylib"
 	"image"
 	"image/color"
 	"image/png"
-	"math"
-	"math/rand"
 	"os"
 	"slices"
 	"strings"
 	"time"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const FilterCount = 4
@@ -30,6 +27,7 @@ type State struct {
 	PaletteWindow  PaletteWindow
 	HelpWindow     HelpWindow
 	SaveLoadWindow SaveLoadWindow
+	SettingsWindow SettingsWindow
 
 	RedHistogram   [256]int
 	BlueHistogram  [256]int
@@ -72,11 +70,6 @@ func (h *ColourHistogram) ConstructHistogram() {
 			h.BlueChannel[uint8(b)] += 1
 		}
 	}
-}
-
-func pixelToRlColor(col color.RGBA) rl.Color { // inline cast
-	r, g, b, a := col.RGBA()
-	return rl.Color{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}
 }
 
 func (s *State) ConstructPalette() {
@@ -122,37 +115,44 @@ func (s *State) GenerateHistogram() {
 	}
 }
 
-func (s *State) GenerateNoiseImage(w, h int) {
-	DebugLog("Generating noise image")
-	seed := time.Now().Unix()
-	rng := rand.New(rand.NewSource(seed))
-	imageSlice := make([]uint8, w*h*4) // pixels * channels
-	for i := 0; i < w*h*4; i += 4 {
-		imageSlice[i+0] = uint8(rng.Intn(256))
-		imageSlice[i+1] = uint8(rng.Intn(256))
-		imageSlice[i+2] = uint8(rng.Intn(256))
-		imageSlice[i+3] = 255
-	}
-	rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
-	s.LoadImage(&rlImage)
-	s.RefreshImage()
-}
+//	func (s *State) GenerateNoiseImage(w, h int) {
+//		DebugLog("Generating noise image")
+//		seed := time.Now().Unix()
+//		rng := rand.New(rand.NewSource(seed))
+//		imageSlice := make([]uint8, w*h*4) // pixels * channels
+//		for i := 0; i < w*h*4; i += 4 {
+//			imageSlice[i+0] = uint8(rng.Intn(256))
+//			imageSlice[i+1] = uint8(rng.Intn(256))
+//			imageSlice[i+2] = uint8(rng.Intn(256))
+//			imageSlice[i+3] = 255
+//		}
+//		rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
+//		s.LoadImage(&rlImage)
+//		s.RefreshImage()
+//	}
 func (s *State) RefreshImage() {
 	// CONSTRUCT IMAGE PALETTE MAP
-	start := time.Now()
-	s.ApplyFilters()
-	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // ~100ms
-	s.ConstructPalette()
+	s.ApplyFilters()                                             // up to 145ms
+	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // >1ms
+	// s.ConstructPalette()                                         // takes 120ms on full image but any quantization reduces a lot
 	s.GenerateHistogram()
-	elapsed := time.Since(start)
-	DebugLogf("Refreshing image took %v", elapsed.String())
 }
 
-func (s *State) LoadImage(img *image.Image) {
+func (s *State) LoadImage(path string) {
 	DebugLog("Loading image")
 	// load the image from the file
-	s.ShownImage = rl.NewImageFromImage(*img)
-	s.OrigImage = *(*img).(*image.RGBA) // WHAT THE FUCK
+
+	s.ShownImage = rl.LoadImage(path)
+	aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
+
+	// if it's longer on the x axis
+	if aspectRatio > 1 {
+		rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
+	} else {
+		// it's longer on the y axis
+		rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
+	}
+	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
 	s.WorkingImage = s.OrigImage
 
 }
@@ -175,21 +175,13 @@ func (s *State) QuantizingFilter() {
 	// then set each colour in the local space to the mean
 	// value of the space... I think
 
-	quantizationBandWidth := 255 / float64(state.Filters.QuantizingBands-1)
 	// floor(x/bandWidth)*bandWidth + bandWidth/2
 	// FIXME this is terrible, doesn't work and crashes in weird edge cases
-	res := make([]uint8, len(s.WorkingImage.Pix))
 	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
-		if i == 100 {
-			DebugLogf("Pixel 1 orig: %d, %d, %d", s.WorkingImage.Pix[i+0], s.WorkingImage.Pix[i+1], s.WorkingImage.Pix[i+2])
-		}
-		s.WorkingImage.Pix[i+0] = uint8(math.Floor(float64(s.WorkingImage.Pix[i+0])/quantizationBandWidth)*quantizationBandWidth + (quantizationBandWidth / 2))
-		s.WorkingImage.Pix[i+1] = uint8(math.Floor(float64(s.WorkingImage.Pix[i+1])/quantizationBandWidth)*quantizationBandWidth + (quantizationBandWidth / 2))
-		s.WorkingImage.Pix[i+2] = uint8(math.Floor(float64(s.WorkingImage.Pix[i+2])/quantizationBandWidth)*quantizationBandWidth + (quantizationBandWidth / 2))
+		s.WorkingImage.Pix[i+0] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+0])
+		s.WorkingImage.Pix[i+1] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+1])
+		s.WorkingImage.Pix[i+2] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+2])
 		s.WorkingImage.Pix[i+3] = s.OrigImage.Pix[i+3] // NOTE: forgot this line and image went invisible, write that down
-		if i == 100 {
-			DebugLogf("Pixel 1 post: %d, %d, %d", res[i+0], res[i+1], res[i+2])
-		}
 	}
 }
 
@@ -223,25 +215,14 @@ func (s *State) TintFilter() {
 
 // TODO: add a save & load menu with a drag and drop box
 
-func (s *State) quantizeValue(v uint8) uint8 {
-	// TODO: make some adjustable curve??
-	bandCount := s.Filters.DitheringQuantizationBuckets
-	bandWidth := uint8(math.Floor(255 / float64(bandCount)))
-	for i := range bandCount + 1 {
-		if (bandCount-i)*bandWidth < v {
-			return bandWidth * (bandCount - i)
-		}
-	}
-	return 0
-}
 func (s *State) DitheringFilter() {
 	bounds := s.WorkingImage.Bounds()
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
 			oldR, oldG, oldB, _ := s.WorkingImage.At(x, y).RGBA()
-			newR := s.quantizeValue(uint8(oldR)) // TODO: This is too aggressive
-			newG := s.quantizeValue(uint8(oldG))
-			newB := s.quantizeValue(uint8(oldB))
+			newR := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldR))
+			newG := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldG))
+			newB := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldB))
 			s.WorkingImage.SetRGBA(x, y, color.RGBA{R: newR, G: newG, B: newB, A: 255})
 
 			errR := uint8(oldR) - newR
@@ -268,16 +249,26 @@ func (s *State) ApplyFilters() {
 
 		// for each filter, apply it to the shown image
 		if s.Filters.IsGrayscaleEnabled && k == "Grayscale" {
+			t := time.Now()
 			s.GrayscaleFilter()
+			InfoLogf("Grayscale filter time: %v", time.Since(t))
 		}
 		if s.Filters.ChannelAdjustmentEnabled && k == "Tint" {
+			t := time.Now()
 			s.TintFilter()
+			InfoLogf("Tint filter time: %v", time.Since(t))
 		}
+		// SLOWish
 		if s.Filters.IsQuantizingEnabled && k == "Quantizing" {
+			t := time.Now()
 			s.QuantizingFilter()
+			InfoLogf("Quant. filter time: %v", time.Since(t))
 		}
+		// SLOW
 		if s.Filters.IsDitheringEnabled && k == "Dithering" {
+			t := time.Now()
 			s.DitheringFilter()
+			InfoLogf("Dither filter time: %v", time.Since(t))
 		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
@@ -311,26 +302,15 @@ func (s *State) Init() {
 		Showing: false,
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
+	s.SettingsWindow = SettingsWindow{
+		Showing: false,
+		Anchor:  rl.Vector2{X: 20, Y: 20},
+	}
 	s.QuantizationKMeansIterations = 10 // adjust for perf
+	s.LoadImage("./resources/image.png")
 	//load the image from the file
-	s.ShownImage = rl.LoadImage("resources/image.png")
 
 	//resize the image to fit the window on its largest axis
-	aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
-
-	// if it's longer on the x axis
-	if aspectRatio > 1 {
-		rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
-	} else {
-		// it's longer on the y axis
-		rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
-	}
-	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
-	s.WorkingImage = s.OrigImage
-
-	// generate the image colour palette
-	s.ConstructPalette()
-
 	//send the image to the GPU
 	// rl.UpdateTexture(s.CurrentTexture, Uint8SliceToRGBASlice(s.OrigImage.Pix))
 	s.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)

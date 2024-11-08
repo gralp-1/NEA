@@ -47,7 +47,6 @@ func (f *FilterOrderWindow) Promote() {
 	} else {
 		state.Filters.Order[f.Active], state.Filters.Order[f.Active-1] = state.Filters.Order[f.Active-1], state.Filters.Order[f.Active]
 		f.Active--
-		state.RefreshImage()
 	}
 }
 func (f *FilterOrderWindow) Demote() {
@@ -56,6 +55,5 @@ func (f *FilterOrderWindow) Demote() {
 	} else {
 		state.Filters.Order[f.Active], state.Filters.Order[f.Active+1] = state.Filters.Order[f.Active+1], state.Filters.Order[f.Active]
 		f.Active++
-		state.RefreshImage()
 	}
 }

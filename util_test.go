@@ -61,7 +61,7 @@ func TestRemoveDuplicates(t *testing.T) {
 	t.Run("Test empty", func(t *testing.T) {
 		lhs := []int{}
 		rhs := []int{}
-		if !slices.Equal([]int{}, removeDuplicates([]int{})) {
+		if !slices.Equal(lhs, removeDuplicates(rhs)) {
 			t.Errorf("LHS: %v\nRHS: %v", lhs, rhs)
 		}
 	})
@@ -87,45 +87,40 @@ func TestRemoveDuplicates(t *testing.T) {
 		}
 	})
 }
-func TestStack(t *testing.T) {
-	t.Run("Test push", func(t *testing.T) {
-		s := NewStack[int]()
-		s.Push(10)
-		s.Push(20)
-		s.Push(30)
-		s.Push(40)
-		if !slices.Equal([]int{10, 20, 30, 40}, s.items) {
-			t.Errorf("Expected [10, 20, 30, 40] and got %v", s.items)
+func TestQuantizeValue(t *testing.T) {
+	t.Run("Test zero bands", func(t *testing.T) {
+		res := make([]uint8, 256)
+		for i := 0; i < 256; i++ {
+			res[i] = QuantizeValue(0, uint8(i))
+		}
+		removeDuplicates(res)
+		if !slices.Equal(res, []uint8{0}) {
+			t.Errorf("Expected %v, got %v", []uint8{0}, res)
 		}
 	})
-	t.Run("Test len and pop", func(t *testing.T) {
-		s := NewStack[int]()
-		s.Push(10)
-		s.Push(20)
-		if s.Len() != 2 {
-			t.Fail()
-		}
-		s.Pop()
-		if s.Len() != 1 {
-			t.Fail()
-		}
-		s.Push(20)
-		if s.Len() != 2 {
-			t.Fail()
+	t.Run("Test 255 bands", func(t *testing.T) {
+		res := make([]uint8, 256)
+		var resCopy []uint8
+		copy(resCopy, res)
+		for i := uint8(0); i < 255; i++ {
+			lhs := i
+			rhs := QuantizeValue(255, i)
+			if lhs != rhs {
+				t.Errorf("Expected %v, got %v", lhs, rhs)
+			}
 		}
 	})
-	t.Run("Test peek", func(t *testing.T) {
-		s := NewStack[int]()
-		s.Push(10)
-		if s.Peek() != 10 {
-			t.Fail()
+	t.Run("Test normal case", func(t *testing.T) {
+		bandCount := uint8(4)
+		res := make([]uint8, 256)
+		for i := 0; i < 256; i++ {
+			res[i] = QuantizeValue(bandCount, uint8(i))
 		}
-		s.Push(20)
-		if s.Peek() != 20 {
-			t.Fail()
+		removeDuplicates(res)
+		expected := []uint8{0}
+		if !slices.Equal(res, expected) {
+			t.Errorf("Expected %v, got %v", expected, res)
 		}
-		if s.Len() != 2 { // this means peek is probably removing elements
-			t.Fail()
-		}
+
 	})
 }

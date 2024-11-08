@@ -49,11 +49,7 @@ func (s *SaveLoadWindow) Draw() {
 			ErrorLogf("More than one file dropped, only using the first one (%v)", paths[0])
 		}
 		InfoLogf("Loading image %v", paths[0])
-		newImage, err := getImageFromFilePath(paths[0])
-		if err != nil {
-			FatalLog(err.Error())
-		}
-		state.LoadImage(&newImage)
+		state.LoadImage(paths[0])
 		DebugLog("Image loaded")
 		state.RefreshImage()
 		DebugLog("Image refreshed")

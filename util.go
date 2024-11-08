@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	rl "github.com/gen2brain/raylib-go/raylib"
 	"image"
 	"image/color"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
+	"math"
 )
 
 // clamp in 0-255 range
@@ -122,4 +122,14 @@ func PixSliceToColourSlice(pix []uint8) []rl.Color {
 		res[i/4] = rl.NewColor(p[0], p[1], p[2], p[3])
 	}
 	return res
+}
+func QuantizeValue(bandCount, v uint8) uint8 {
+	// TODO: make some adjustable curve??
+	bandWidth := uint8(math.Floor(256 / float64(bandCount)))
+	for i := range bandCount + 1 {
+		if (bandCount-i)*bandWidth < v {
+			return bandWidth * (bandCount - i)
+		}
+	}
+	return 0
 }
