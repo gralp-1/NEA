@@ -1,9 +1,10 @@
 package main
 
 import (
+	"time"
+
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
-	"time"
 )
 
 type SettingsWindow struct {
@@ -18,7 +19,7 @@ func (w *SettingsWindow) getRect() rl.Rectangle {
 	return rl.NewRectangle(w.Anchor.X, w.Anchor.Y, 400, 300)
 }
 func (w *SettingsWindow) Draw() {
-	w.Showing = !gui.WindowBox(w.getRect(), "Settings")
+	w.Showing = !gui.WindowBox(w.getRect(), Translate("window.settings.title"))
 
 	// Language selection
 	w.IsLanguageDropDownActive = gui.DropdownBox(rl.NewRectangle(w.Anchor.X+10, w.Anchor.Y+30, 100, 30), "English;German", (*int32)(&w.ActiveLanguage), w.IsLanguageDropDownActive)

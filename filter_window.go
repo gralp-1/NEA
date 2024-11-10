@@ -19,7 +19,7 @@ func (f *FilterOrderWindow) getRect() rl.Rectangle {
 	return rl.NewRectangle(f.Anchor.X, f.Anchor.Y, 300, 260)
 }
 func (f *FilterOrderWindow) Draw() {
-	f.Showing = !gui.WindowBox(f.getRect(), "Filter Order Configuration")
+	f.Showing = !gui.WindowBox(f.getRect(), Translate("window.filter.title"))
 	stashStyle := gui.GetStyle(gui.LABEL, gui.TEXT_ALIGNMENT)
 	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
 	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+30, 100, 10), "Applied first")

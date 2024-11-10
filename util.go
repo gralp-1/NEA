@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	rl "github.com/gen2brain/raylib-go/raylib"
 	"image"
 	"image/color"
 	"math"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 // clamp in 0-255 range
@@ -45,56 +46,6 @@ func removeDuplicates[T comparable](s []T) []T {
 	return result
 }
 
-type Stack[T any] struct {
-	items []T
-}
-
-func NewStack[T any]() Stack[T] {
-	return Stack[T]{
-		items: make([]T, 0),
-	}
-}
-
-func (s *Stack[T]) Len() uint {
-	return uint(len(s.items))
-}
-
-func (s *Stack[T]) Push(item T) {
-	s.items = append(s.items, item)
-}
-func (s *Stack[T]) Peek() T {
-	return s.items[len(s.items)-1]
-}
-
-func (s *Stack[T]) Pop() {
-	if s.IsEmpty() {
-		return
-	}
-	s.items = s.items[:len(s.items)-1]
-}
-
-func (s *Stack[T]) Top() (T, error) {
-	var out T // basically nil for [T any]
-	if s.IsEmpty() {
-		return out, fmt.Errorf("stack is empty")
-	}
-	return s.items[len(s.items)-1], nil
-}
-
-func (s *Stack[T]) IsEmpty() bool {
-	if len(s.items) == 0 {
-		return true
-	}
-	return false
-}
-
-func (s *Stack[T]) Print() {
-	for _, item := range s.items {
-		fmt.Print(item, " ")
-	}
-	fmt.Println()
-}
-
 type Integer interface {
 	uint8 | uint16 | uint32 | uint64 | uintptr |
 		int8 | int16 | int32 | int64
@@ -132,4 +83,59 @@ func QuantizeValue(bandCount, v uint8) uint8 {
 		}
 	}
 	return 0
+}
+
+func Translate(in string) string {
+	res := state.LanguageData[state.Config.Language][in]
+	if res == "" {
+		languageName := ""
+		switch state.Config.Language {
+		case English:
+			languageName = "English"
+		case German:
+			languageName = "German"
+		}
+		return fmt.Sprintf("%v not translated to %v", in, languageName)
+	}
+	return res
+}
+
+func FilterMask[T any](vals []T, f func(T) bool) []bool {
+	res := make([]bool, len(vals))
+	for i, v := range vals {
+		res[i] = f(v)
+	}
+	return res
+}
+func FilterIn[T any](vals []T, f func(T) bool) {
+	res := make([]T, len(vals))
+	for _, v := range vals {
+		if f(v) {
+			res = append(res, v)
+		}
+	}
+	copy(vals, res)
+}
+func FilterOut[T any](vals []T, f func(T) bool) []T {
+	res := make([]T, len(vals))
+	for _, v := range vals {
+		if f(v) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+func MapOut[T any](vals []T, f func(T) T) []T {
+	res := make([]T, len(vals))
+	for i, v := range vals {
+		res[i] = f(v)
+	}
+	return res
+}
+
+func MapIn[T any](vals []T, f func(T) T) {
+	for i, v := range vals {
+		vals[i] = f(v)
+	}
 }

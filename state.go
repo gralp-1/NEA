@@ -2,17 +2,26 @@ package main
 
 import (
 	"bytes"
-	rl "github.com/gen2brain/raylib-go/raylib"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"slices"
 	"strings"
 	"time"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const FilterCount = 4
+
+const (
+	English       Language = iota
+	German                 = iota
+	LanguageCount          = iota
+)
 
 type State struct {
 
@@ -39,6 +48,9 @@ type State struct {
 
 	// UI
 	Filters Filters
+
+	Config       Config
+	LanguageData [LanguageCount]map[string]string
 }
 
 type Filters struct {
@@ -213,6 +225,69 @@ func (s *State) TintFilter() {
 	}
 }
 
+func stdDev(vals []uint8) float64 {
+	sum := 0.0
+	for _, v := range vals {
+		sum += float64(v)
+	}
+	mean := sum / float64(len(vals))
+	dev := 0.0
+	for _, v := range vals {
+		dev += math.Pow(float64(v)-mean, 2)
+	}
+
+	dev /= float64(len(vals))
+	return math.Sqrt(dev)
+}
+
+func RGBToHSV(r, g, b uint8) (float64, float64, float64) {
+	rPrime := float64(r) / 255.0
+	gPrime := float64(g) / 255.0
+	bPrime := float64(b) / 255.0
+
+	// value
+	value := float64(max(rPrime, gPrime, bPrime))
+	delta := value - float64(min(rPrime, gPrime, bPrime))
+
+	// Hue
+
+	// Saturation
+	saturation := 0.0
+	if value != 0 {
+		saturation = float64(delta) / float64(value)
+	}
+	hue := 0.0
+	switch value {
+	case float64(rPrime):
+		hue = 60.0 * float64(int((gPrime-bPrime)/delta)%6)
+	case float64(gPrime):
+		hue = 60.0 * (((bPrime - rPrime) / delta) + 2)
+	case float64(bPrime):
+		hue = 60.0 * (((rPrime - gPrime) / delta) + 4)
+	}
+	return hue, saturation, value
+}
+
+func hsvPixels(pix []uint8) []float64 {
+	res := make([]float64, len(pix))
+	for i := 0; i < len(pix); i += 4 {
+		h, s, v := RGBToHSV(pix[i], pix[i+1], pix[i+2])
+		res[i+0] = h
+		res[i+1] = s
+		res[i+2] = v
+		res[i+3] = float64(pix[i+3])
+	}
+	return res
+}
+
+func everyNth[T any](vals []T, n, c int) []T {
+	res := make([]T, len(vals)/n)
+	for i := 0; i < len(vals)/n; i += 1 {
+		res[i] = vals[n*i+c]
+	}
+	return res
+}
+
 // TODO: add a save & load menu with a drag and drop box
 
 func (s *State) DitheringFilter() {
@@ -274,6 +349,17 @@ func (s *State) ApplyFilters() {
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
 }
 
+// TODO: logging not terminating colour escape codes
+func (s *State) LoadLanguageData() {
+	content, err := os.ReadFile("./resources/langs.json")
+	if err != nil {
+		FatalLogf("Couldn't read language data: %v", err.Error())
+	}
+	err = json.Unmarshal(content, &s.LanguageData)
+	if err != nil {
+		FatalLogf("Couldn't decode language file: %v", err.Error())
+	}
+}
 func (s *State) Init() {
 	InfoLog("Initialising state")
 	s.Filters = Filters{
@@ -306,7 +392,8 @@ func (s *State) Init() {
 		Showing: false,
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
-	s.QuantizationKMeansIterations = 10 // adjust for perf
+	s.LoadLanguageData()
+	s.QuantizationKMeansIterations = 10 // adjust for perfk
 	s.LoadImage("./resources/image.png")
 	//load the image from the file
 

@@ -17,7 +17,7 @@ func (p *HelpWindow) getRect() rl.Rectangle {
 	return rl.NewRectangle(p.Anchor.X, p.Anchor.Y, 500, 375)
 }
 func (p *HelpWindow) Draw() {
-	p.Showing = !gui.WindowBox(p.getRect(), "Help window")
+	p.Showing = !gui.WindowBox(p.getRect(), Translate("window.help.title"))
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 2_00, 30), "H - Open this help window")
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+50, 2_00, 30), "C - View palette")
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+70, 2_00, 30), "O - Change filter order window")

@@ -1,11 +1,12 @@
 package main
 
 import (
-	gui "github.com/gen2brain/raylib-go/raygui"
-	rl "github.com/gen2brain/raylib-go/raylib"
 	"image"
 	"os"
 	"time"
+
+	gui "github.com/gen2brain/raylib-go/raygui"
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type SaveLoadWindow struct {
@@ -27,7 +28,7 @@ func (s *SaveLoadWindow) getRect() rl.Rectangle {
 	return rl.NewRectangle(s.Anchor.X, s.Anchor.Y, 400, 300)
 }
 func (s *SaveLoadWindow) Draw() {
-	s.Showing = !gui.WindowBox(s.getRect(), "Save and Load")
+	s.Showing = !gui.WindowBox(s.getRect(), Translate("window.save.title"))
 	dragDropRect := rl.NewRectangle((s.Anchor.X)+10, (s.Anchor.Y)+30, (s.getRect().Width)-20, (s.getRect().Height)-80)
 	rl.DrawRectangleLinesEx(dragDropRect, 2, rl.Red)
 	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "Save file") {

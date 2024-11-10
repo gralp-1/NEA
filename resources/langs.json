@@ -1,0 +1,16 @@
+[
+  {
+    "window.help.title": "Help",
+    "window.filter.title": "Filter Order window",
+    "window.palette.title": "Palette Histograms",
+    "window.settings.title": "Settings",
+    "window.save.title": "Save & Load Files"
+  },
+  {
+    "window.help.title": "Helfen",
+    "window.filter.title": "Filterreihenfolge",
+    "window.palette.title": "Paletten-Histogramme",
+    "window.settings.title": "Einstellungen",
+    "window.save.title": "Speichern & Laden"
+  }
+]

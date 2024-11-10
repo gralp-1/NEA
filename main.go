@@ -14,22 +14,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type Language int32
-
-const (
-	English Language = iota
-	German           = iota
-)
-
-type Config struct {
-	bg       rl.Color
-	language Language
-}
-
-func NewConfig() Config {
-	return Config{bg: rl.White, language: English}
-}
-
 // TODO: config system
 // global state variable
 var state State
@@ -49,6 +33,7 @@ func main() {
 	state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage)
 	state.HelpWindow.Showing = true
 	state.HelpWindow.InteractedWith = time.Now()
+	state.Config.Language = German
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()

@@ -54,7 +54,7 @@ func (p *PaletteWindow) DrawHistogram(anchor rl.Vector2, data []int, colour rl.C
 	}
 }
 func (p *PaletteWindow) Draw() {
-	p.Showing = !gui.WindowBox(p.getRect(), "Palette display window")
+	p.Showing = !gui.WindowBox(p.getRect(), Translate("window.palette.title"))
 
 	p.ActiveHistogram = gui.ToggleGroup(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 100, 20), "Red;Green;Blue", p.ActiveHistogram)
 
