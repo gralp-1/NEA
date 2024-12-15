@@ -15,7 +15,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const FilterCount = 4
+const FilterCount = 5
 
 const (
 	English       Language = iota
@@ -54,14 +54,21 @@ type State struct {
 }
 
 type Filters struct {
-	IsGrayscaleEnabled           bool
-	IsQuantizingEnabled          bool
-	QuantizingBands              uint8
+	IsGrayscaleEnabled bool
+
+	IsQuantizingEnabled bool
+	QuantizingBands     uint8
+
 	IsDitheringEnabled           bool
 	DitheringQuantizationBuckets uint8
-	ChannelAdjustmentEnabled     bool
-	ChannelAdjustment            [3]float32
-	Order                        [FilterCount]string
+
+	ChannelAdjustmentEnabled bool
+	ChannelAdjustment        [3]float32
+
+	IsBoxBlurEnabled  bool
+	BoxBlurIterations int
+
+	Order [FilterCount]string
 }
 
 type ColourHistogram struct {
@@ -106,7 +113,7 @@ func (s *State) ConstructPalette() {
 }
 
 func (s *State) GetFiltersListViewString() string {
-	return strings.Join(s.Filters.Order[:], ";")
+	return strings.Join(MapOut(s.Filters.Order[:], Translate), ";")
 }
 
 func (s *State) GetImageColours() []rl.Color {
@@ -127,20 +134,129 @@ func (s *State) GenerateHistogram() {
 	}
 }
 
-//	func (s *State) GenerateNoiseImage(w, h int) {
-//		DebugLog("Generating noise image")
-//		seed := time.Now().Unix()
-//		rng := rand.New(rand.NewSource(seed))
-//		imageSlice := make([]uint8, w*h*4) // pixels * channels
-//		for i := 0; i < w*h*4; i += 4 {
-//			imageSlice[i+0] = uint8(rng.Intn(256))
-//			imageSlice[i+1] = uint8(rng.Intn(256))
-//			imageSlice[i+2] = uint8(rng.Intn(256))
-//			imageSlice[i+3] = 255
-//		}
-//		rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
-//		s.LoadImage(&rlImage)
-//		s.RefreshImage()
+func gaussianKernel(stDev float64, size int) [][]float64 {
+	res := make([][]float64, size)
+	for i := range size {
+		res[i] = make([]float64, size)
+	}
+	sum := 0.0
+	for x := 0; x < size; x++ {
+		for y := 0; y < size; y++ {
+			exponent := -(float64(x*x+y*y) / (2 * stDev * stDev))
+			coeff := 1 / (2 * math.Pi * stDev * stDev)
+			res[x][y] = coeff * math.Exp(exponent)
+			sum += res[x][y]
+		}
+	}
+	//normalize
+	for x := 0; x < size; x++ {
+		for y := 0; y < size; y++ {
+			res[x][y] /= sum
+		}
+	}
+	return res
+}
+
+func Clamp(v, min, max int) int {
+	if v > max {
+		return max
+	}
+	if v < min {
+		return min
+	}
+	return v
+}
+
+func (s *State) BoxBlurFilter() {
+	//kernelSize := 3
+	w := s.WorkingImage.Bounds().Dx()
+	h := s.WorkingImage.Bounds().Dy()
+	for i := range s.Filters.BoxBlurIterations {
+		_ = i
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				if x < 1 || y < 1 || x+1 == w || y+1 == h {
+					continue
+				}
+				pixels := make([]color.Color, 9)
+				pixels[0] = s.WorkingImage.At(x-1, y-1) // tl
+				pixels[1] = s.WorkingImage.At(x, y-1)   // tm
+				pixels[2] = s.WorkingImage.At(x+1, y-1) // tr
+
+				pixels[3] = s.WorkingImage.At(x-1, y) // ml
+				pixels[4] = s.WorkingImage.At(x, y)   // mm
+				pixels[5] = s.WorkingImage.At(x+1, y) // mr
+
+				pixels[6] = s.WorkingImage.At(x-1, y+1) // bl
+				pixels[7] = s.WorkingImage.At(x, y+1)   // bm
+				pixels[8] = s.WorkingImage.At(x+1, y+1) // br
+
+				var rSum, gSum, bSum, aSum int
+				for _, p := range pixels {
+					r, g, b, a := p.RGBA()
+					rSum += int(r >> 8)
+					gSum += int(g >> 8)
+					bSum += int(b >> 8)
+					aSum += int(a >> 8)
+				}
+				rSum /= 9
+				gSum /= 9
+				bSum /= 9
+				aSum /= 9
+				s.WorkingImage.Set(x, y, color.RGBA{R: uint8(rSum), G: uint8(gSum), B: uint8(bSum), A: uint8(aSum)})
+			}
+		}
+	}
+}
+
+func (s *State) GaussianBlurFilter() {
+	//w := s.WorkingImage.Bounds().Dx()
+	//h := s.WorkingImage.Bounds().Dy()
+	//offset := s.Filters.GaussianKernelSize / 2
+	//s.Filters.GaussianKernelSize = int(math.Pow(math.Ceil(6.0*s.Filters.GaussianDeviation), 2.0))
+	//kernel := gaussianKernel(s.Filters.GaussianDeviation, s.Filters.GaussianKernelSize)
+	//for y := 0; y < h; y++ {
+	//	for x := 0; x < w; x++ {
+	//		var rSum, gSum, bSum float64
+	//
+	//		// apply convolution
+	//		for i := 0; i < s.Filters.GaussianKernelSize; i++ {
+	//			for j := 0; j < s.Filters.GaussianKernelSize; j++ {
+	//				px := Clamp(x+i-offset, 0, w)
+	//				py := Clamp(y+i-offset, 0, h)
+	//
+	//				r, g, b, _ := s.WorkingImage.At(px, py).RGBA()
+	//				rSum += float64(r) * kernel[i][j]
+	//				gSum += float64(g) * kernel[i][j]
+	//				bSum += float64(b) * kernel[i][j]
+	//			}
+	//		}
+	//		blurredColor := color.RGBA{
+	//			R: uint8(math.Min(math.Max(rSum/257, 0), 255)),
+	//			G: uint8(math.Min(math.Max(gSum/257, 0), 255)),
+	//			B: uint8(math.Min(math.Max(bSum/257, 0), 255)),
+	//			A: 255,
+	//		}
+	//		s.WorkingImage.Set(x, y, blurredColor)
+	//	}
+	//}
+
+}
+
+//		func (s *State) GenerateNoiseImage(w, h int) {
+//			DebugLog("Generating noise image")
+//			seed := time.Now().Unix()
+//			rng := rand.New(rand.NewSource(seed))
+//			imageSlice := make([]uint8, w*h*4) // pixels * channels
+//			for i := 0; i < w*h*4; i += 4 {
+//				imageSlice[i+0] = uint8(rng.Intn(256))
+//				imageSlice[i+1] = uint8(rng.Intn(256))
+//				imageSlice[i+2] = uint8(rng.Intn(256))
+//				imageSlice[i+3] = 255
+//			}
+//			rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
+//			s.LoadImage(&rlImage)
+//			s.RefreshImage()
 //	}
 func (s *State) RefreshImage() {
 	// CONSTRUCT IMAGE PALETTE MAP
@@ -323,27 +439,32 @@ func (s *State) ApplyFilters() {
 	for _, k := range s.Filters.Order {
 
 		// for each filter, apply it to the shown image
-		if s.Filters.IsGrayscaleEnabled && k == "Grayscale" {
+		if s.Filters.IsGrayscaleEnabled && k == "control.grayscale" {
 			t := time.Now()
 			s.GrayscaleFilter()
 			InfoLogf("Grayscale filter time: %v", time.Since(t))
 		}
-		if s.Filters.ChannelAdjustmentEnabled && k == "Tint" {
+		if s.Filters.ChannelAdjustmentEnabled && k == "control.channeladjustment" {
 			t := time.Now()
 			s.TintFilter()
 			InfoLogf("Tint filter time: %v", time.Since(t))
 		}
 		// SLOWish
-		if s.Filters.IsQuantizingEnabled && k == "Quantizing" {
+		if s.Filters.IsQuantizingEnabled && k == "control.quantizing" {
 			t := time.Now()
 			s.QuantizingFilter()
 			InfoLogf("Quant. filter time: %v", time.Since(t))
 		}
 		// SLOW
-		if s.Filters.IsDitheringEnabled && k == "Dithering" {
+		if s.Filters.IsDitheringEnabled && k == "control.dithering" {
 			t := time.Now()
 			s.DitheringFilter()
 			InfoLogf("Dither filter time: %v", time.Since(t))
+		}
+		if s.Filters.IsBoxBlurEnabled && k == "control.boxblur" {
+			t := time.Now()
+			s.BoxBlurFilter()
+			InfoLogf("Gaussian filter time: %v", time.Since(t))
 		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
@@ -363,14 +484,11 @@ func (s *State) LoadLanguageData() {
 func (s *State) Init() {
 	InfoLog("Initialising state")
 	s.Filters = Filters{
-		IsGrayscaleEnabled:           false,
-		IsDitheringEnabled:           false,
 		DitheringQuantizationBuckets: 190,
-		IsQuantizingEnabled:          false,
 		QuantizingBands:              50,
-		ChannelAdjustmentEnabled:     false,
 		ChannelAdjustment:            [3]float32{1.0, 1.0, 1.0},
-		Order:                        [4]string{"Grayscale", "Quantizing", "Dithering", "Tint"}, // initial Order
+		BoxBlurIterations:            3,
+		Order:                        [FilterCount]string{"control.grayscale", "control.quantizing", "control.dithering", "control.channeladjustment", "control.boxblur"}, // initial Order
 	}
 	s.FilterWindow = FilterOrderWindow{
 		Showing: false,
@@ -410,4 +528,18 @@ func (s *State) Init() {
 func (s *State) SaveImage() {
 	f, _ := os.Create("image.png")
 	_ = png.Encode(f, state.WorkingImage.SubImage(state.WorkingImage.Rect)) // what a stupid API
+}
+
+func (s *State) SaveState() {
+	InfoLog("Saving state")
+	f, _ := os.Create("./resources/state.json")
+	c, _ := json.Marshal(state) // what a stupid API
+	_, _ = f.Write(c)
+}
+
+func (s *State) Close() {
+	state.SaveImage()
+	state.SaveState()
+	rl.CloseWindow()
+	os.Exit(0)
 }

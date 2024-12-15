@@ -22,20 +22,20 @@ func (f *FilterOrderWindow) Draw() {
 	f.Showing = !gui.WindowBox(f.getRect(), Translate("window.filter.title"))
 	stashStyle := gui.GetStyle(gui.LABEL, gui.TEXT_ALIGNMENT)
 	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
-	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+30, 100, 10), "Applied first")
+	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+30, 100, 10), Translate("window.filter.appliedfirst"))
 	f.Active = gui.ListView(
 		rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+50, 100, 180),
 		state.GetFiltersListViewString(),
 		&f.ScrollIndex,
 		f.Active,
 	)
-	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+240, 100, 10), "Applied last")
+	gui.Label(rl.NewRectangle(f.Anchor.X+10, f.Anchor.Y+240, 100, 10), Translate("window.filter.appliedlast"))
 	// Promote button
-	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+30, 100, 50), "Promote Selected") {
+	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+30, 100, 50), Translate("window.filter.promote")) {
 		f.Promote()
 	}
 	// Demote button
-	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+80, 100, 50), "Demote Selected") {
+	if gui.Button(rl.NewRectangle(f.Anchor.X+150, f.Anchor.Y+80, 100, 50), Translate("window.filter.demote")) {
 		f.Demote()
 	}
 	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, stashStyle)

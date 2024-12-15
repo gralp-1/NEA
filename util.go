@@ -24,9 +24,11 @@ func distributeError(img *image.RGBA, x, y int, errR, errG, errB uint8, factor f
 	yBoundInImage := y >= bounds.Min.Y && y < bounds.Max.Y
 	if xBoundInImage && yBoundInImage {
 		currR, currG, currB, _ := img.At(x, y).RGBA()
+
 		currR /= 257
 		currG /= 257
 		currB /= 257
+
 		newR := clamp(int(currR) + int(float64(errR)*factor))
 		newG := clamp(int(currG) + int(float64(errG)*factor))
 		newB := clamp(int(currB) + int(float64(errB)*factor))
@@ -94,28 +96,14 @@ func Translate(in string) string {
 			languageName = "English"
 		case German:
 			languageName = "German"
+		default:
+			FatalLogf("Language %v has no name for settings menu", state.Config.Language)
 		}
 		return fmt.Sprintf("%v not translated to %v", in, languageName)
 	}
 	return res
 }
 
-func FilterMask[T any](vals []T, f func(T) bool) []bool {
-	res := make([]bool, len(vals))
-	for i, v := range vals {
-		res[i] = f(v)
-	}
-	return res
-}
-func FilterIn[T any](vals []T, f func(T) bool) {
-	res := make([]T, len(vals))
-	for _, v := range vals {
-		if f(v) {
-			res = append(res, v)
-		}
-	}
-	copy(vals, res)
-}
 func FilterOut[T any](vals []T, f func(T) bool) []T {
 	res := make([]T, len(vals))
 	for _, v := range vals {
@@ -132,10 +120,4 @@ func MapOut[T any](vals []T, f func(T) T) []T {
 		res[i] = f(v)
 	}
 	return res
-}
-
-func MapIn[T any](vals []T, f func(T) T) {
-	for i, v := range vals {
-		vals[i] = f(v)
-	}
 }

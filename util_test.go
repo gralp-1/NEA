@@ -93,20 +93,17 @@ func TestQuantizeValue(t *testing.T) {
 		for i := 0; i < 256; i++ {
 			res[i] = QuantizeValue(0, uint8(i))
 		}
+		RHS := make([]uint8, 256)
 		removeDuplicates(res)
-		if !slices.Equal(res, []uint8{0}) {
-			t.Errorf("Expected %v, got %v", []uint8{0}, res)
+		if !slices.Equal(res, RHS) {
+			t.Errorf("Expected %v, got %v", RHS, res)
 		}
 	})
 	t.Run("Test 255 bands", func(t *testing.T) {
-		res := make([]uint8, 256)
-		var resCopy []uint8
-		copy(resCopy, res)
-		for i := uint8(0); i < 255; i++ {
-			lhs := i
-			rhs := QuantizeValue(255, i)
-			if lhs != rhs {
-				t.Errorf("Expected %v, got %v", lhs, rhs)
+		for i := range 256 {
+			res := QuantizeValue(255, i)
+			if i != res {
+				t.Errorf("Expected %d got %d", i, res)
 			}
 		}
 	})

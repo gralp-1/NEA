@@ -22,7 +22,10 @@ func (w *SettingsWindow) Draw() {
 	w.Showing = !gui.WindowBox(w.getRect(), Translate("window.settings.title"))
 
 	// Language selection
-	w.IsLanguageDropDownActive = gui.DropdownBox(rl.NewRectangle(w.Anchor.X+10, w.Anchor.Y+30, 100, 30), "English;German", (*int32)(&w.ActiveLanguage), w.IsLanguageDropDownActive)
+	if gui.DropdownBox(rl.NewRectangle(w.Anchor.X+10, w.Anchor.Y+30, 100, 30), "English;Deutsch", (*int32)(&state.Config.Language), w.IsLanguageDropDownActive) {
+		w.IsLanguageDropDownActive = !w.IsLanguageDropDownActive
+		state.LoadLanguageData()
+	}
 
 	// Theme selection
 

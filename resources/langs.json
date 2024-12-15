@@ -1,16 +1,71 @@
 [
   {
+    "colour.red": "Red",
+    "colour.green": "Green",
+    "colour.blue": "Blue",
+    "main.title": "Image editor",
+
     "window.help.title": "Help",
-    "window.filter.title": "Filter Order window",
-    "window.palette.title": "Palette Histograms",
+    "window.help.help": "Open this help window",
+    "window.help.palette": "Palette Histograms",
+    "window.help.order": "Filter Order Window",
+    "window.help.save": "Save window",
+    "window.help.settings": "Settings",
+
+    "window.filter.title": "Filter Order Window",
+    "window.filter.appliedfirst": "Applied First",
+    "window.filter.appliedlast": "Applied Last",
+    "window.filter.promote": "Promote",
+    "window.filter.demote": "Demote",
+
+    "window.palette.title": "Palette Histogram",
+    "window.palette.emptyerror": "This channel has no values",
+
     "window.settings.title": "Settings",
-    "window.save.title": "Save & Load Files"
+
+    "window.save.title": "Save & Load Files",
+
+    "control.grayscale": "Grayscale",
+    "control.dithering": "Dithering",
+    "control.quantizing": "Quantization",
+    "control.quantizationbands": "Quantization Bands",
+    "control.channeladjustment": "Tint",
+    
+    "control.boxblur": "Box Blur",
+    "control.boxblur.iterations": "Iterations"
   },
   {
+    "colour.red": "Rot",
+    "colour.green": "Grün",
+    "colour.blue": "Blau",
+    "main.title": "Bildeditor",
+
     "window.help.title": "Helfen",
+    "window.help.help": "Öffnen Sie dieses Hilfefenster",
+    "window.help.palette": "Palette anzeigen",
+    "window.help.order": "Fenster Filterreihenfolge ändern",
+    "window.help.save": "Speicherfenster öffnen",
+    "window.help.settings": "Einstellungsfenster öffnen",
+
     "window.filter.title": "Filterreihenfolge",
-    "window.palette.title": "Paletten-Histogramme",
+    "window.filter.appliedfirst": "Zuerst angewendet",
+    "window.filter.appliedlast": "Zuletzt angewendet",
+    "window.filter.promote": "Fördern",
+    "window.filter.demote": "Degradieren",
+
+    "window.palette.title": "Paletten-Histogram",
+    "window.palette.emptyerror": "Dieser Kanal ist leer",
+
     "window.settings.title": "Einstellungen",
-    "window.save.title": "Speichern & Laden"
+
+    "window.save.title": "Speichern & Laden",
+
+    "control.grayscale": "Graustufen",
+    "control.dithering": "Zittern",
+    "control.quantizing": "Quantisierung",
+    "control.quantizationbands": "Quantisierungsbänder",
+    "control.channeladjustment": "Kanalanpassung",
+    "control.boxblur": "Boxunschärfe",
+    "control.boxblur.iterations": "Iterationen"
   }
 ]

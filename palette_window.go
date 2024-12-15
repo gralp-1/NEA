@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	gui "github.com/gen2brain/raylib-go/raygui"
@@ -33,13 +34,13 @@ func (p *PaletteWindow) DrawHistogram(anchor rl.Vector2, data []int, colour rl.C
 	largestFreq := slices.Max(data)
 	if largestFreq == 0 {
 		ErrorLog("Largest histogram value was zero")
-		gui.Label(rl.NewRectangle(p.Anchor.X, p.Anchor.Y, 100, 20), "Image contains none of this colour")
+		gui.Label(rl.NewRectangle(p.Anchor.X, p.Anchor.Y, 100, 20), Translate("window.palette.emptyerror"))
 		return
 	}
 
 	// Draw title
 	rl.DrawRectangle(int32(anchor.X)+5, int32(anchor.Y)+5, 20, 20, colour)
-	rl.DrawText("Channel Histogram", int32(anchor.X)+30, int32(anchor.Y)+6, 20, rl.Black)
+	rl.DrawText(Translate("window.palette.title"), int32(anchor.X)+30, int32(anchor.Y)+6, 20, rl.Black)
 
 	var GraphWidth = int32(p.getRect().Width - 20.0)
 	var BarWidth = int32(math.Floor(float64(GraphWidth / 256.0)))
@@ -50,13 +51,13 @@ func (p *PaletteWindow) DrawHistogram(anchor rl.Vector2, data []int, colour rl.C
 		height := int32(float64(GraphHeight) * fractionalHeight)
 		x := int32(anchor.X + float32(i*BarWidth))
 		rl.DrawRectangle(x, int32(anchor.Y)+GraphHeight-height+20, BarWidth, height-25, colour)
-
 	}
 }
 func (p *PaletteWindow) Draw() {
 	p.Showing = !gui.WindowBox(p.getRect(), Translate("window.palette.title"))
 
-	p.ActiveHistogram = gui.ToggleGroup(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 100, 20), "Red;Green;Blue", p.ActiveHistogram)
+	controlString := strings.Join(MapOut([]string{"colour.red", "colour.blue", "colour.green"}, Translate), ";")
+	p.ActiveHistogram = gui.ToggleGroup(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 100, 20), controlString, p.ActiveHistogram)
 
 	switch p.ActiveHistogram {
 	case 0:
