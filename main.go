@@ -16,11 +16,13 @@ import (
 // TODO: config system
 // global state variable
 var state State
+var globalQuantizeLUT [][]uint8
 
 func main() {
 	rl.InitWindow(0, 0, "")
 	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
 	rl.SetTargetFPS(60 * 2)
+	InitLut()
 
 	state.Init()
 

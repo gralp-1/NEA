@@ -7,13 +7,22 @@ import (
 
 type Language int32
 
+type FileFormat string
+
+const (
+	PNG  FileFormat = "png"
+	JPG             = "jpg"
+	TIFF            = "tiff"
+	BMP             = "bmp"
+)
+
 type Config struct {
-	Theme    string   `json:"Theme"`
-	Language Language `json:"Language"`
+	Language   Language   `json:"Language"`
+	FileFormat FileFormat `json:"FileFormat"`
 }
 
 func NewConfig() Config {
-	return Config{Theme: "default", Language: English}
+	return Config{Language: English, FileFormat: TIFF}
 }
 
 // TODO: make NEA config path configureable
@@ -40,5 +49,5 @@ func (c *Config) SaveConfig() {
 	if err != nil {
 		panic(err)
 	}
-	_ = os.WriteFile("~/.neaconfig.json", content, 0666)
+	_ = os.WriteFile("~/.imgconfig.json", content, 0666)
 }

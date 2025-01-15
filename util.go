@@ -76,15 +76,34 @@ func PixSliceToColourSlice(pix []uint8) []rl.Color {
 	}
 	return res
 }
+
+// QuantizeValue quantizes a value into a bucketCount number of buckets
+// exceptions: bandCount = 0 -> return 0
+// bandCount = 1 -> return value
+func Quantize(bandCount, v uint8) uint8 {
+	if bandCount == 0 {
+		return 0
+	}
+	if bandCount == 1 {
+		return v
+	}
+	// quantize a function into bandCount buckets
+	bucketSize := uint8(math.Trunc(float64(255) / float64(bandCount+1)))
+	return uint8(math.Trunc(float64(v)/float64(bucketSize)) * float64(bucketSize))
+}
 func QuantizeValue(bandCount, v uint8) uint8 {
-	// TODO: make some adjustable curve??
-	bandWidth := uint8(math.Floor(256 / float64(bandCount)))
-	for i := range bandCount + 1 {
-		if (bandCount-i)*bandWidth < v {
-			return bandWidth * (bandCount - i)
+	// quantize a function into bandCount buckets quickly using a LUT
+	bucketSize := uint8(math.Trunc(float64(255) / float64(bandCount+1)))
+	return globalQuantizeLUT[bucketSize][v]
+}
+func InitLut() {
+	globalQuantizeLUT = make([][]uint8, 256)
+	for i := 0; i < 256; i++ {
+		globalQuantizeLUT[i] = make([]uint8, 256)
+		for j := 0; j < 256; j++ {
+			globalQuantizeLUT[i][j] = Quantize(uint8(i), uint8(j))
 		}
 	}
-	return 0
 }
 
 func Translate(in string) string {

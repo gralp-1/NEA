@@ -31,7 +31,7 @@ func (s *SaveLoadWindow) Draw() {
 	s.Showing = !gui.WindowBox(s.getRect(), Translate("window.save.title"))
 	dragDropRect := rl.NewRectangle((s.Anchor.X)+10, (s.Anchor.Y)+30, (s.getRect().Width)-20, (s.getRect().Height)-80)
 	rl.DrawRectangleLinesEx(dragDropRect, 2, rl.Red)
-	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "Save file") {
+	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "Save file as "+string(state.Config.FileFormat)) {
 		state.SaveImage()
 	}
 	// This is a way to make it centred without doing any measurement

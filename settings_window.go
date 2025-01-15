@@ -27,8 +27,6 @@ func (w *SettingsWindow) Draw() {
 		state.LoadLanguageData()
 	}
 
-	// Theme selection
-
 	// Format selection
 	// PNG, JPEG, TIFF
 }

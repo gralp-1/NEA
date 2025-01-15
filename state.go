@@ -23,6 +23,13 @@ const (
 	LanguageCount          = iota
 )
 
+type Theme int
+
+const (
+	ThemeLight Theme = iota
+	ThemeDark
+)
+
 type State struct {
 
 	// We have current image which never changes and shown image is the one that is shown on the screen and edited
@@ -526,8 +533,25 @@ func (s *State) Init() {
 }
 
 func (s *State) SaveImage() {
-	f, _ := os.Create("image.png")
-	_ = png.Encode(f, state.WorkingImage.SubImage(state.WorkingImage.Rect)) // what a stupid API
+	extension := string(s.Config.FileFormat)
+	InfoLogf("Saving as %s format", extension)
+	f, err := os.Create("./resources/output." + extension)
+	if err != nil {
+		FatalLogf("Couldn't create file: %v", err.Error())
+	}
+	switch s.Config.FileFormat {
+	case PNG:
+		err = png.Encode(f, image.Image(&s.WorkingImage))
+	case TIFF:
+		err = png.Encode(f, image.Image(&s.WorkingImage))
+	case BMP:
+		err = png.Encode(f, image.Image(&s.WorkingImage))
+	case JPG:
+		err = png.Encode(f, image.Image(&s.WorkingImage))
+	}
+	if err != nil {
+		FatalLogf("Couldn't encode image: %v", err.Error())
+	}
 }
 
 func (s *State) SaveState() {
