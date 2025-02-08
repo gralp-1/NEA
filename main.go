@@ -1,5 +1,7 @@
 package main
 
+// TODO: brighten/darken image slider
+//
 import (
 	"fmt"
 	"math"
@@ -16,13 +18,11 @@ import (
 // TODO: config system
 // global state variable
 var state State
-var globalQuantizeLUT [][]uint8
 
 func main() {
 	rl.InitWindow(0, 0, "")
 	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
 	rl.SetTargetFPS(60 * 2)
-	InitLut()
 
 	state.Init()
 
@@ -37,8 +37,7 @@ func main() {
 	rl.SetWindowTitle(Translate("main.title"))
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
-
-		rl.ClearBackground(state.BackgroundColour)
+		rl.ClearBackground(rl.GetColor(uint(gui.GetStyle(0, 19)))) // TODO: change to default background
 
 		// apply all the filters
 		// only reload the texture if the filters have changed because it's quite slow
@@ -61,7 +60,7 @@ func main() {
 		)
 		state.Filters.DitheringQuantizationBuckets = uint8(math.Trunc(float64(gui.Slider(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 55, 100, 10),
-			"0", "15", float32(state.Filters.DitheringQuantizationBuckets), 0.0, 15.0))))
+			"2", "15", float32(state.Filters.DitheringQuantizationBuckets), 2.0, 15.0))))
 
 		state.Filters.IsQuantizingEnabled = gui.CheckBox( // gabagool
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 85, 10, 10),
@@ -117,6 +116,14 @@ func main() {
 			1.0,
 			10.0,
 		))
+
+		gui.Label(rl.NewRectangle(float32(rl.GetScreenWidth()-200), 245, 100, 10), Translate("control.brightness"))
+		state.Filters.LightenDarken = float64(gui.Slider(rl.Rectangle{
+			X:      float32(rl.GetScreenWidth() - 200),
+			Y:      265,
+			Width:  100,
+			Height: 10,
+		}, "-1.0", "1.0", float32(state.Filters.LightenDarken), -1.0, 1.0))
 
 		mousePos := rl.GetMousePosition()
 		if rl.IsKeyPressed(rl.KeyO) {

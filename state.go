@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"math"
 	"os"
@@ -12,22 +13,18 @@ import (
 	"strings"
 	"time"
 
+	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"golang.org/x/image/bmp"
+	"golang.org/x/image/tiff"
 )
 
-const FilterCount = 5
+const FilterCount = 6
 
 const (
 	English       Language = iota
 	German                 = iota
 	LanguageCount          = iota
-)
-
-type Theme int
-
-const (
-	ThemeLight Theme = iota
-	ThemeDark
 )
 
 type State struct {
@@ -75,6 +72,8 @@ type Filters struct {
 	IsBoxBlurEnabled  bool
 	BoxBlurIterations int
 
+	LightenDarken float64
+
 	Order [FilterCount]string
 }
 
@@ -82,6 +81,17 @@ type ColourHistogram struct {
 	RedChannel   map[uint8]int
 	GreenChannel map[uint8]int
 	BlueChannel  map[uint8]int
+}
+
+func (s *State) LightenDarken() {
+	// +1 makes everything white
+	// -1 makes everything black
+	// 0 does nothing
+	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
+		s.WorkingImage.Pix[i+0] = uint8(Clamp(float64(s.WorkingImage.Pix[i+0])*(s.Filters.LightenDarken+1), 0, 255))
+		s.WorkingImage.Pix[i+1] = uint8(Clamp(float64(s.WorkingImage.Pix[i+1])*(s.Filters.LightenDarken+1), 0, 255))
+		s.WorkingImage.Pix[i+2] = uint8(Clamp(float64(s.WorkingImage.Pix[i+2])*(s.Filters.LightenDarken+1), 0, 255))
+	}
 }
 
 func (h *ColourHistogram) ConstructHistogram() {
@@ -164,11 +174,11 @@ func gaussianKernel(stDev float64, size int) [][]float64 {
 	return res
 }
 
-func Clamp(v, min, max int) int {
-	if v > max {
+func Clamp[T interface{ ~int | ~float64 }](v, min, max T) T {
+	if v >= max {
 		return max
 	}
-	if v < min {
+	if v <= min {
 		return min
 	}
 	return v
@@ -176,8 +186,63 @@ func Clamp(v, min, max int) int {
 
 func (s *State) BoxBlurFilter() {
 	//kernelSize := 3
-	w := s.WorkingImage.Bounds().Dx()
-	h := s.WorkingImage.Bounds().Dy()
+	bounds := s.WorkingImage.Bounds()
+	// temp := image.NewRGBA(bounds)
+	w, h := bounds.Dx(), bounds.Dy()
+	// rad := s.Filters.BoxBlurIterations
+	// // horizontal pass
+	// for y := 0; y < h; y++ {
+	// 	for x := 0; x < w; x++ {
+	// 		count := 0
+	// 		var r, g, b uint32
+	// 		for i := -rad; i <= rad; i++ {
+	// 			px := Clamp(x+int(i), 0, w-1)
+	// 			r, g, b, _ = s.OrigImage.At(px, y).RGBA()
+	// 			xi := x + int(i)
+	// 			if xi >= 0 && xi < w {
+	// 				c := s.OrigImage.At(xi, y)
+	// 				cr, cg, cb, _ := c.RGBA()
+	// 				r += (cr >> 8)
+	// 				g += (cg >> 8)
+	// 				b += (cb >> 8)
+	// 				count++
+	// 			}
+	// 		}
+	// 		temp.SetRGBA(x, y, color.RGBA{
+	// 			R: uint8(int(r) / count),
+	// 			G: uint8(int(g) / count),
+	// 			B: uint8(int(b) / count),
+	// 			A: 255,
+	// 		})
+	// 	}
+	// }
+	// // vertical pass
+	// for y := 0; y < h; y++ {
+	// 	for x := 0; x < w; x++ {
+	// 		count := 0
+	// 		var r, g, b uint32
+	// 		for i := -rad; i <= rad; i++ {
+	// 			py := Clamp(y+int(i), 0, h-1)
+	// 			r, g, b, _ = s.OrigImage.At(x, py).RGBA()
+	// 			yi := y + int(i)
+	// 			if yi >= 0 && yi < h {
+	// 				c := s.OrigImage.At(x, yi)
+	// 				cr, cg, cb, _ := c.RGBA()
+	// 				r += (cr >> 8)
+	// 				g += (cg >> 8)
+	// 				b += (cb >> 8)
+	// 				count++
+	// 			}
+	// 		}
+	// 		temp.SetRGBA(x, y, color.RGBA{
+	// 			R: uint8(int(r) / count),
+	// 			G: uint8(int(g) / count),
+	// 			B: uint8(int(b) / count),
+	// 			A: 255,
+	// 		})
+	// 	}
+	// }
+	// s.WorkingImage = *temp
 	for i := range s.Filters.BoxBlurIterations {
 		_ = i
 		for y := 0; y < h; y++ {
@@ -269,7 +334,7 @@ func (s *State) RefreshImage() {
 	// CONSTRUCT IMAGE PALETTE MAP
 	s.ApplyFilters()                                             // up to 145ms
 	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // >1ms
-	// s.ConstructPalette()                                         // takes 120ms on full image but any quantization reduces a lot
+	// s.ConstructPalette()                                      // takes 120ms on full image but any quantization reduces a lot
 	s.GenerateHistogram()
 }
 
@@ -313,9 +378,9 @@ func (s *State) QuantizingFilter() {
 	// floor(x/bandWidth)*bandWidth + bandWidth/2
 	// FIXME this is terrible, doesn't work and crashes in weird edge cases
 	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
-		s.WorkingImage.Pix[i+0] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+0])
-		s.WorkingImage.Pix[i+1] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+1])
-		s.WorkingImage.Pix[i+2] = QuantizeValue(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+2])
+		s.WorkingImage.Pix[i+0] = Quantize(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+0])
+		s.WorkingImage.Pix[i+1] = Quantize(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+1])
+		s.WorkingImage.Pix[i+2] = Quantize(state.Filters.QuantizingBands, s.WorkingImage.Pix[i+2])
 		s.WorkingImage.Pix[i+3] = s.OrigImage.Pix[i+3] // NOTE: forgot this line and image went invisible, write that down
 	}
 }
@@ -418,9 +483,9 @@ func (s *State) DitheringFilter() {
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
 			oldR, oldG, oldB, _ := s.WorkingImage.At(x, y).RGBA()
-			newR := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldR))
-			newG := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldG))
-			newB := QuantizeValue(s.Filters.DitheringQuantizationBuckets, uint8(oldB))
+			newR := Quantize(s.Filters.DitheringQuantizationBuckets, uint8(oldR))
+			newG := Quantize(s.Filters.DitheringQuantizationBuckets, uint8(oldG))
+			newB := Quantize(s.Filters.DitheringQuantizationBuckets, uint8(oldB))
 			s.WorkingImage.SetRGBA(x, y, color.RGBA{R: newR, G: newG, B: newB, A: 255})
 
 			errR := uint8(oldR) - newR
@@ -473,6 +538,11 @@ func (s *State) ApplyFilters() {
 			s.BoxBlurFilter()
 			InfoLogf("Gaussian filter time: %v", time.Since(t))
 		}
+		if k == "control.lightendarken" {
+			t := time.Now()
+			s.LightenDarken()
+			InfoLogf("Lighten/darken filter time: %v", time.Since(t))
+		}
 	}
 	s.ShownImage = rl.NewImageFromImage(&s.WorkingImage)
 }
@@ -490,12 +560,14 @@ func (s *State) LoadLanguageData() {
 }
 func (s *State) Init() {
 	InfoLog("Initialising state")
+	s.LoadFonts()
 	s.Filters = Filters{
 		DitheringQuantizationBuckets: 190,
 		QuantizingBands:              50,
 		ChannelAdjustment:            [3]float32{1.0, 1.0, 1.0},
 		BoxBlurIterations:            3,
-		Order:                        [FilterCount]string{"control.grayscale", "control.quantizing", "control.dithering", "control.channeladjustment", "control.boxblur"}, // initial Order
+		LightenDarken:                0.0,
+		Order:                        [FilterCount]string{"control.grayscale", "control.quantizing", "control.dithering", "control.channeladjustment", "control.boxblur", "control.lightendarken"}, // initial Order
 	}
 	s.FilterWindow = FilterOrderWindow{
 		Showing: false,
@@ -510,14 +582,19 @@ func (s *State) Init() {
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
 	s.SaveLoadWindow = SaveLoadWindow{
-		Showing: false,
-		Anchor:  rl.Vector2{X: 20, Y: 20},
+		Showing:                  false,
+		Anchor:                   rl.Vector2{X: 20, Y: 20},
+		IsFileTypeDropDownActive: false,
 	}
 	s.SettingsWindow = SettingsWindow{
 		Showing: false,
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
+
 	s.LoadLanguageData()
+	s.Config.FileFormat = TIFF
+	s.Config.FontSize = 10
+	s.SetFontSize()
 	s.QuantizationKMeansIterations = 10 // adjust for perfk
 	s.LoadImage("./resources/image.png")
 	//load the image from the file
@@ -533,9 +610,9 @@ func (s *State) Init() {
 }
 
 func (s *State) SaveImage() {
-	extension := string(s.Config.FileFormat)
-	InfoLogf("Saving as %s format", extension)
-	f, err := os.Create("./resources/output." + extension)
+	extension := s.Config.GetActiveFileFormat().String()
+	InfoLogf("Saving as image.%s", extension)
+	f, err := os.Create("./output." + extension)
 	if err != nil {
 		FatalLogf("Couldn't create file: %v", err.Error())
 	}
@@ -543,27 +620,75 @@ func (s *State) SaveImage() {
 	case PNG:
 		err = png.Encode(f, image.Image(&s.WorkingImage))
 	case TIFF:
-		err = png.Encode(f, image.Image(&s.WorkingImage))
+		err = tiff.Encode(f, image.Image(&s.WorkingImage), &tiff.Options{Compression: tiff.Uncompressed, Predictor: true})
 	case BMP:
-		err = png.Encode(f, image.Image(&s.WorkingImage))
+		err = bmp.Encode(f, image.Image(&s.WorkingImage))
 	case JPG:
-		err = png.Encode(f, image.Image(&s.WorkingImage))
+		err = jpeg.Encode(f, image.Image(&s.WorkingImage), &jpeg.Options{Quality: 100})
 	}
 	if err != nil {
 		FatalLogf("Couldn't encode image: %v", err.Error())
 	}
 }
 
-func (s *State) SaveState() {
-	InfoLog("Saving state")
-	f, _ := os.Create("./resources/state.json")
-	c, _ := json.Marshal(state) // what a stupid API
-	_, _ = f.Write(c)
-}
-
 func (s *State) Close() {
 	state.SaveImage()
-	state.SaveState()
 	rl.CloseWindow()
 	os.Exit(0)
 }
+
+var DarkThemeData [][]int = [][]int{
+	{0, 0, 0x878787ff},  // DEFAULT_BORDER_COLOR_NORMAL
+	{0, 1, 0x2c2c2cff},  // DEFAULT_BASE_COLOR_NORMAL
+	{0, 2, 0xc3c3c3ff},  // DEFAULT_TEXT_COLOR_NORMAL
+	{0, 3, 0xe1e1e1ff},  // DEFAULT_BORDER_COLOR_FOCUSED
+	{0, 4, 0x848484ff},  // DEFAULT_BASE_COLOR_FOCUSED
+	{0, 5, 0x181818ff},  // DEFAULT_TEXT_COLOR_FOCUSED
+	{0, 6, 0x000000ff},  // DEFAULT_BORDER_COLOR_PRESSED
+	{0, 7, 0xefefefff},  // DEFAULT_BASE_COLOR_PRESSED
+	{0, 8, 0x202020ff},  // DEFAULT_TEXT_COLOR_PRESSED
+	{0, 9, 0x6a6a6aff},  // DEFAULT_BORDER_COLOR_DISABLED
+	{0, 10, 0x818181ff}, // DEFAULT_BASE_COLOR_DISABLED
+	{0, 11, 0x606060ff}, // DEFAULT_TEXT_COLOR_DISABLED
+	{0, 18, 0x9d9d9dff}, // DEFAULT_LINE_COLOR
+	{0, 19, 0x3c3c3cff}, // DEFAULT_BACKGROUND_COLOR
+	{1, 5, 0xf7f7f7ff},  // LABEL_TEXT_COLOR_FOCUSED
+	{1, 8, 0x898989ff},  // LABEL_TEXT_COLOR_PRESSED
+	{4, 5, 0xb0b0b0ff},  // SLIDER_TEXT_COLOR_FOCUSED
+	{5, 5, 0x848484ff},  // PROGRESSBAR_TEXT_COLOR_FOCUSED
+	{9, 5, 0xf5f5f5ff},  // TEXTBOX_TEXT_COLOR_FOCUSED
+	{10, 5, 0xf6f6f6ff}, // VALUEBOX_TEXT_COLOR_FOCUSED
+}
+
+func (s *State) ChangeTheme() {
+	switch s.Config.CurrentTheme {
+	case ThemeLight:
+		gui.LoadStyleDefault()
+	case ThemeDark:
+		for _, control := range DarkThemeData {
+			gui.SetStyle(int32(control[0]), int32(control[1]), int64(control[2]))
+		}
+	}
+	s.LoadFonts()
+	s.ChangeFont()
+}
+
+var FontLibrary [int(FontCount)]rl.Font
+
+func (s *State) LoadFonts() {
+	DebugLogf("Loading %d fonts", FontCount)
+	FontLibrary[FontDefault]     = rl.GetFontDefault()
+	FontLibrary[FontArial]       = rl.LoadFont("resources/arial.ttf")
+	FontLibrary[FontBerkleyMono] = rl.LoadFont("resources/berkley_mono.otf")
+	FontLibrary[FontComicSans]   = rl.LoadFont("resources/comic_sans.ttf")
+	FontLibrary[FontZapfino]     = rl.LoadFont("resources/zapfino.ttf")
+	FontLibrary[FontSpleen]      = rl.LoadFont("resources/spleen.otf")
+}
+func (s *State) ChangeFont() {
+	DebugLogf("Changing font to %d", s.Config.CurrentFont)
+	gui.SetFont(FontLibrary[s.Config.CurrentFont])
+}
+func (s *State) SetFontSize() {
+	gui.SetStyle(gui.DEFAULT, gui.TEXT_SIZE, s.Config.FontSize)
+}
+
