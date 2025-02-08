@@ -29,7 +29,7 @@ func (w *SettingsWindow) Draw() {
 	state.SetFontSize()
 
 	storeFontSize := state.Config.FontSize
-	state.Config.FontSize = int64(gui.Slider(rl.NewRectangle(w.Anchor.X+70, w.Anchor.Y+90, 100, 7), "9", "42", float32(state.Config.FontSize), 9.0, 42.0))
+	state.Config.FontSize = int64(gui.Slider(rl.NewRectangle(w.Anchor.X+70, w.Anchor.Y+90, 100, 7), "10", "42", float32(state.Config.FontSize), 10.0, 42.0))
 	if state.Config.FontSize != storeFontSize {
 		state.SetFontSize()
 	}
