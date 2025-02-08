@@ -18,9 +18,9 @@ func (p *HelpWindow) getRect() rl.Rectangle {
 }
 func (p *HelpWindow) Draw() {
 	p.Showing = !gui.WindowBox(p.getRect(), Translate("window.help.title"))
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 200, 30), "H - "+Translate("window.help.help"))
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+50, 200, 30), "C - "+Translate("window.help.palette"))
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+70, 200, 30), "O - "+Translate("window.help.order"))
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+90, 200, 30), "S - "+Translate("window.help.save"))
-	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+110, 200, 30), ", - "+Translate("window.help.settings"))
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 300, 40), "H - "+Translate("window.help.help"))
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+50, 300, 40), "C - "+Translate("window.help.palette"))
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+70, 300, 40), "O - "+Translate("window.help.order"))
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+90, 300, 40), "S - "+Translate("window.help.save"))
+	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+110, 300, 40), ", - "+Translate("window.help.settings"))
 }
