@@ -10,9 +10,10 @@ import (
 )
 
 type SaveLoadWindow struct {
-	Showing        bool
-	Anchor         rl.Vector2
-	InteractedWith time.Time
+	Showing                  bool
+	Anchor                   rl.Vector2
+	InteractedWith           time.Time
+	IsFileTypeDropDownActive bool
 }
 
 func getImageFromFilePath(filePath string) (image.Image, error) {
@@ -25,15 +26,25 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 	return image, err
 }
 func (s *SaveLoadWindow) getRect() rl.Rectangle {
-	return rl.NewRectangle(s.Anchor.X, s.Anchor.Y, 400, 300)
+	return rl.NewRectangle(s.Anchor.X, s.Anchor.Y, 400, 440)
 }
 func (s *SaveLoadWindow) Draw() {
 	s.Showing = !gui.WindowBox(s.getRect(), Translate("window.save.title"))
-	dragDropRect := rl.NewRectangle((s.Anchor.X)+10, (s.Anchor.Y)+30, (s.getRect().Width)-20, (s.getRect().Height)-80)
+	dragDropRect := rl.NewRectangle((s.Anchor.X)+10, (s.Anchor.Y)+30, (s.getRect().Width)-20, (s.getRect().Height)-120)
 	rl.DrawRectangleLinesEx(dragDropRect, 2, rl.Red)
-	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "Save file as "+string(state.Config.FileFormat)) {
+
+	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10+30+10, dragDropRect.Width, 30), "Save file as "+state.Config.FileFormat.String()) {
 		state.SaveImage()
 	}
+
+	if gui.DropdownBox(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "png;jpg;tiff;bmp", &state.Config.ActiveFormatIndex, s.IsFileTypeDropDownActive) {
+		s.IsFileTypeDropDownActive = !s.IsFileTypeDropDownActive
+	}
+
+	// file type selector
+
+	// name of the file
+
 	// This is a way to make it centred without doing any measurement
 	stashAlignment := gui.GetStyle(gui.LABEL, gui.TEXT_ALIGNMENT)
 	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
