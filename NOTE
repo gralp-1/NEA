@@ -1,6 +1,7 @@
 currently segfauting because the input data is all messed up, we need a new input image by now anyway
 - fix file output
+- remove all config saving
 - select file format in the config window
-- fully translate the config window
+- fully translate the config and save window
 - formattable Translatef function
 - fix converting FileFormat to a string for extension of output file

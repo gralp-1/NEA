@@ -30,7 +30,9 @@
     "control.quantizing": "Quantization",
     "control.quantizationbands": "Quantization Bands",
     "control.channeladjustment": "Tint",
-    
+    "control.lightendarken": "Lighten/Darken",
+    "control.brightness": "Brightness",
+
     "control.boxblur": "Box Blur",
     "control.boxblur.iterations": "Iterations"
   },
