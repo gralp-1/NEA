@@ -1,53 +1,52 @@
 package main
 
-import (
-	"encoding/json"
-	"os"
-)
-
 type Language int32
 
-type FileFormat string
+type FileFormat int32
 
 const (
-	PNG  FileFormat = "png"
-	JPG             = "jpg"
-	TIFF            = "tiff"
-	BMP             = "bmp"
+	PNG  FileFormat = iota
+	JPG             = iota
+	TIFF            = iota
+	BMP             = iota
+)
+
+func (f FileFormat) String() string {
+	return [...]string{"png", "jpg", "tiff", "bmp"}[int32(f)]
+}
+
+
+type Theme int32
+
+const (
+	ThemeLight Theme = iota
+	ThemeDark        = iota
+)
+
+type Font int32
+const (
+	FontDefault Font = iota
+	FontBerkleyMono  = iota
+	FontArial        = iota
+	FontComicSans    = iota
+	FontZapfino      = iota
+	FontSpleen       = iota
+	FontCount        = iota
 )
 
 type Config struct {
-	Language   Language   `json:"Language"`
-	FileFormat FileFormat `json:"FileFormat"`
+	Language          Language
+	FileFormat        FileFormat
+	ActiveFormatIndex int32
+	CurrentTheme      Theme
+	CurrentFont       Font
+	FontSize          int64
+}
+
+func (c *Config) GetActiveFileFormat() FileFormat {
+	return FileFormat(c.ActiveFormatIndex)
 }
 
 func NewConfig() Config {
-	return Config{Language: English, FileFormat: TIFF}
-}
-
-// TODO: make NEA config path configureable
-
-func (c *Config) LoadConfigOrDefault() {
-	// read ~/.neaconfig.json
-	content, err := os.ReadFile("~/.neaconfig.json")
-	state.Config = NewConfig()
-	if err != nil {
-		ErrorLogf("Error reading config: %v\nResorting to default config %v", err.Error(), state.Config)
-		return
-	}
-	tempConfig := NewConfig()
-	err = json.Unmarshal(content, &tempConfig)
-	if err != nil {
-		ErrorLogf("Error decoding config: %v\nResorting to default config %v", err.Error(), state.Config)
-		return
-	}
-	state.Config = tempConfig
-}
-
-func (c *Config) SaveConfig() {
-	content, err := json.Marshal(c)
-	if err != nil {
-		panic(err)
-	}
-	_ = os.WriteFile("~/.imgconfig.json", content, 0666)
+	return Config{Language: English, FileFormat: TIFF, CurrentTheme: ThemeLight, CurrentFont: FontZapfino, FontSize: 18}
 }
