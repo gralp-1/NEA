@@ -7,37 +7,37 @@ import (
 
 func TestClamp(t *testing.T) {
 	t.Run("Test Negative", func(t *testing.T) {
-		if clamp(-100) != 0 {
+		if ClampByte(-100) != 0 {
 			t.Fail()
 		}
 	})
 	t.Run("Test Above", func(t *testing.T) {
-		if clamp(999) != 255 {
+		if ClampByte(999) != 255 {
 			t.Fail()
 		}
 	})
 	t.Run("Test in range", func(t *testing.T) {
-		if clamp(120) != 120 {
+		if ClampByte(120) != 120 {
 			t.Fail()
 		}
 	})
 	t.Run("Test in upper bound", func(t *testing.T) {
-		if clamp(255) != 255 {
+		if ClampByte(255) != 255 {
 			t.Fail()
 		}
 	})
 	t.Run("Test in lower bound", func(t *testing.T) {
-		if clamp(0) != 0 {
+		if ClampByte(0) != 0 {
 			t.Fail()
 		}
 	})
 	t.Run("Test out upper bound", func(t *testing.T) {
-		if clamp(256) != 255 {
+		if ClampByte(256) != 255 {
 			t.Fail()
 		}
 	})
 	t.Run("Test out lower bound", func(t *testing.T) {
-		if clamp(-1) != 0 {
+		if ClampByte(-1) != 0 {
 			t.Fail()
 		}
 	})
@@ -91,7 +91,7 @@ func TestQuantizeValue(t *testing.T) {
 	t.Run("Test zero bands", func(t *testing.T) {
 		res := make([]uint8, 256)
 		for i := 0; i < 256; i++ {
-			res[i] = QuantizeValue(0, uint8(i))
+			res[i] = Quantize(0, uint8(i))
 		}
 		RHS := make([]uint8, 256)
 		if !slices.Equal(res, RHS) {
@@ -100,7 +100,7 @@ func TestQuantizeValue(t *testing.T) {
 	})
 	t.Run("Test 255 bands", func(t *testing.T) {
 		for i := range 255 {
-			res := QuantizeValue(255, uint8(i))
+			res := Quantize(255, uint8(i))
 			if uint8(i) != res {
 				t.Errorf("Expected %d got %d", i, res)
 			}
@@ -108,8 +108,8 @@ func TestQuantizeValue(t *testing.T) {
 	})
 	t.Run("Test 1 band", func(t *testing.T) {
 		for i := range 255 {
-			if QuantizeValue(1, uint8(i)) != uint8(i) {
-				t.Errorf("Expected %d got %d", i, QuantizeValue(1, uint8(i)))
+			if Quantize(1, uint8(i)) != uint8(i) {
+				t.Errorf("Expected %d got %d", i, Quantize(1, uint8(i)))
 			}
 		}
 	})
@@ -117,7 +117,7 @@ func TestQuantizeValue(t *testing.T) {
 		bandCount := uint8(4)
 		res := make([]uint8, 256)
 		for i := 0; i < 256; i++ {
-			res[i] = QuantizeValue(bandCount, uint8(i))
+			res[i] = Quantize(bandCount, uint8(i))
 		}
 		removeDuplicates(res)
 		expected := []uint8{0}

@@ -9,8 +9,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-// clamp in 0-255 range
-func clamp(value int) int {
+// ClampByte in 0-255 range
+func ClampByte(value int) int {
 	if value < 0 {
 		return 0
 	} else if value > 255 {
@@ -29,9 +29,9 @@ func distributeError(img *image.RGBA, x, y int, errR, errG, errB uint8, factor f
 		currG /= 257
 		currB /= 257
 
-		newR := clamp(int(currR) + int(float64(errR)*factor))
-		newG := clamp(int(currG) + int(float64(errG)*factor))
-		newB := clamp(int(currB) + int(float64(errB)*factor))
+		newR := ClampByte(int(currR) + int(float64(errR)*factor))
+		newG := ClampByte(int(currG) + int(float64(errG)*factor))
+		newB := ClampByte(int(currB) + int(float64(errB)*factor))
 		img.SetRGBA(x, y, color.RGBA{R: uint8(newR), G: uint8(newG), B: uint8(newB), A: 255})
 	}
 }
@@ -81,29 +81,12 @@ func PixSliceToColourSlice(pix []uint8) []rl.Color {
 // exceptions: bandCount = 0 -> return 0
 // bandCount = 1 -> return value
 func Quantize(bandCount, v uint8) uint8 {
-	if bandCount == 0 {
-		return 0
-	}
-	if bandCount == 1 {
+	if bandCount == 1 || bandCount == 0 {
 		return v
 	}
 	// quantize a function into bandCount buckets
 	bucketSize := uint8(math.Trunc(float64(255) / float64(bandCount+1)))
 	return uint8(math.Trunc(float64(v)/float64(bucketSize)) * float64(bucketSize))
-}
-func QuantizeValue(bandCount, v uint8) uint8 {
-	// quantize a function into bandCount buckets quickly using a LUT
-	bucketSize := uint8(math.Trunc(float64(255) / float64(bandCount+1)))
-	return globalQuantizeLUT[bucketSize][v]
-}
-func InitLut() {
-	globalQuantizeLUT = make([][]uint8, 256)
-	for i := 0; i < 256; i++ {
-		globalQuantizeLUT[i] = make([]uint8, 256)
-		for j := 0; j < 256; j++ {
-			globalQuantizeLUT[i][j] = Quantize(uint8(i), uint8(j))
-		}
-	}
 }
 
 func Translate(in string) string {
