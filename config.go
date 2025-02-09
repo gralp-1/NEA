@@ -15,7 +15,6 @@ func (f FileFormat) String() string {
 	return [...]string{"png", "jpg", "tiff", "bmp"}[int32(f)]
 }
 
-
 type Theme int32
 
 const (
@@ -24,14 +23,15 @@ const (
 )
 
 type Font int32
+
 const (
-	FontDefault Font = iota
-	FontBerkleyMono  = iota
-	FontArial        = iota
-	FontComicSans    = iota
-	FontZapfino      = iota
-	FontSpleen       = iota
-	FontCount        = iota
+	FontDefault     Font = iota
+	FontBerkleyMono      = iota
+	FontArial            = iota
+	FontComicSans        = iota
+	FontZapfino          = iota
+	FontSpleen           = iota
+	FontCount            = iota
 )
 
 type Config struct {

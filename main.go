@@ -20,24 +20,42 @@ import (
 var state State
 
 func main() {
-	rl.InitWindow(0, 0, "")
-	defer rl.CloseWindow() // this makes sure that the window is always closed at the end of the function
+	rl.InitWindow(800, 600, "")
+	defer rl.CloseWindow()
 	rl.SetTargetFPS(60 * 2)
 
+	// Initialize state after file is dropped
 	state.Init()
 
 	// adjust the window size so it's the same size as the image + a 400 pixel gutter for image controls
-	rl.SetWindowSize(int(state.ShownImage.Width+400), int(state.ShownImage.Height))
 
 	oldFiltersHash, _ := structhash.Hash(state.Filters, 1)
 
-	state.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage)
 	state.HelpWindow.Showing = true
 	state.HelpWindow.InteractedWith = time.Now()
 	rl.SetWindowTitle(Translate("main.title"))
+	state.ImageLoaded = false
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.GetColor(uint(gui.GetStyle(0, 19)))) // TODO: change to default background
+		if !state.ImageLoaded {
+			// handle drag and drop file loading on the window
+			// load with std lib for multiple file format support
+			w := rl.MeasureText("Drag and drop an image file to load", 30)
+			// draw "drag a file to load" label in middle of screen
+			rl.DrawText("Drag and drop an image file to load", (800-w)/2, 285, 30, rl.Red) // TODO: custom colour for pizaz
+
+			if rl.IsFileDropped() {
+				list := rl.LoadDroppedFiles()
+				state.ImagePath = list[0]
+				state.LoadImageFile(list[0])
+				rl.UnloadDroppedFiles()
+			}
+
+			rl.EndDrawing()
+			continue
+
+		}
 
 		// apply all the filters
 		// only reload the texture if the filters have changed because it's quite slow
@@ -48,6 +66,7 @@ func main() {
 		//	state.GenerateNoiseImage(500, 500)
 		//}
 		// DRAW UI
+		// TODO: seperate out into functions
 		state.Filters.IsGrayscaleEnabled = gui.CheckBox(
 			rl.NewRectangle(float32(rl.GetScreenWidth()-200), 10, 10, 10),
 			Translate("control.grayscale"),
@@ -208,7 +227,7 @@ func main() {
 		if strings.Compare(newFiltersHash, oldFiltersHash) != 0 {
 			state.RefreshImage()
 		}
-
+		// TODO: remove this in the final version
 		rl.DrawFPS(10, 10)
 		rl.EndDrawing()
 	}

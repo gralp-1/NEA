@@ -1,8 +1,8 @@
 package main
 
 import (
-	"time"
 	"fmt"
+	"time"
 
 	gui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -25,7 +25,7 @@ func (w *SettingsWindow) Draw() {
 	w.Showing = !gui.WindowBox(w.getRect(), Translate("window.settings.title"))
 
 	gui.SetStyle(gui.DEFAULT, gui.TEXT_SIZE, 10)
-	gui.Label(rl.NewRectangle(w.Anchor.X+70, w.Anchor.Y+70, 100, 7), fmt.Sprintf("Font Size: %d",state.Config.FontSize))
+	gui.Label(rl.NewRectangle(w.Anchor.X+70, w.Anchor.Y+70, 100, 7), fmt.Sprintf("Font Size: %d", state.Config.FontSize))
 	state.SetFontSize()
 
 	storeFontSize := state.Config.FontSize
@@ -52,4 +52,3 @@ func (w *SettingsWindow) Draw() {
 		}
 	}
 }
-

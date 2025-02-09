@@ -30,40 +30,19 @@ func (s *SaveLoadWindow) getRect() rl.Rectangle {
 }
 func (s *SaveLoadWindow) Draw() {
 	s.Showing = !gui.WindowBox(s.getRect(), Translate("window.save.title"))
-	dragDropRect := rl.NewRectangle((s.Anchor.X)+10, (s.Anchor.Y)+30, (s.getRect().Width)-20, (s.getRect().Height)-120)
-	rl.DrawRectangleLinesEx(dragDropRect, 2, rl.Red)
-
-	if gui.Button(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10+30+10, dragDropRect.Width, 30), "Save file as "+state.Config.FileFormat.String()) {
+	// TODO: filename text box
+	if gui.Button(
+		rl.NewRectangle(s.getRect().X+10, s.getRect().Y+30+5, s.getRect().Width-20, 30),
+		"Save file") {
 		state.SaveImage()
 	}
 
-	if gui.DropdownBox(rl.NewRectangle(dragDropRect.X, dragDropRect.Y+dragDropRect.Height+10, dragDropRect.Width, 30), "png;jpg;tiff;bmp", &state.Config.ActiveFormatIndex, s.IsFileTypeDropDownActive) {
+	if gui.DropdownBox(
+		rl.NewRectangle(s.getRect().X+10, s.getRect().Y+30+45, s.getRect().Width-20, 30),
+		"png;jpg;tiff;bmp",
+		&state.Config.ActiveFormatIndex,
+		s.IsFileTypeDropDownActive) {
 		s.IsFileTypeDropDownActive = !s.IsFileTypeDropDownActive
 	}
 
-	// file type selector
-
-	// name of the file
-
-	// This is a way to make it centred without doing any measurement
-	stashAlignment := gui.GetStyle(gui.LABEL, gui.TEXT_ALIGNMENT)
-	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, gui.TEXT_ALIGN_CENTER)
-
-	gui.Label(dragDropRect, "Drag & Drop new files here")
-
-	gui.SetStyle(gui.LABEL, gui.TEXT_ALIGNMENT, stashAlignment)
-	if rl.IsFileDropped() && rl.CheckCollisionPointRec(rl.GetMousePosition(), dragDropRect) {
-		InfoLog("New file dropped in, saving original")
-		state.SaveImage()
-		DebugLog("Image saved")
-		paths := rl.LoadDroppedFiles() // only take the first one`
-		if len(paths) > 1 {
-			ErrorLogf("More than one file dropped, only using the first one (%v)", paths[0])
-		}
-		InfoLogf("Loading image %v", paths[0])
-		state.LoadImage(paths[0])
-		DebugLog("Image loaded")
-		state.RefreshImage()
-		DebugLog("Image refreshed")
-	}
 }

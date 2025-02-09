@@ -28,13 +28,14 @@ const (
 )
 
 type State struct {
+	ImageLoaded bool
+	ImagePath   string
 
 	// We have current image which never changes and shown image is the one that is shown on the screen and edited
-	OrigImage                    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
-	WorkingImage                 image.RGBA
-	ShownImage                   *rl.Image
-	ImagePalette                 []rl.Color
-	QuantizationKMeansIterations int
+	OrigImage    image.RGBA // NOTE: making this a pointer caused a big pass by reference / pass by value bug meaning that filters couldn't be unapplied'
+	WorkingImage image.RGBA
+	ShownImage   *rl.Image
+	ImagePalette []rl.Color
 
 	FilterWindow   FilterOrderWindow
 	PaletteWindow  PaletteWindow
@@ -338,23 +339,55 @@ func (s *State) RefreshImage() {
 	s.GenerateHistogram()
 }
 
-func (s *State) LoadImage(path string) {
+func (s *State) LoadImageFile(path string) {
+	// get the extension and match it, if there's an error in this we just return without settings ImageLoaded to true
+	fileParts := strings.Split(path, ".")
+	extension := strings.ToLower(fileParts[len(fileParts)-1])
+	f, err := os.Open(s.ImagePath)
+	if err != nil {
+		return
+	}
+
+	var image image.Image
+
+	if extension == "jpg" || extension == "jpeg" {
+		image, err = jpeg.Decode(f)
+	}
+	if extension == "png" {
+		image, err = png.Decode(f)
+	}
+	if extension == "tiff" {
+		image, err = tiff.Decode(f)
+	}
+	if extension == "bmp" {
+		image, err = bmp.Decode(f)
+	}
+
+	if err != nil {
+		return
+	}
+	s.LoadImage(image)
+	s.ImageLoaded = true
+}
+
+func (s *State) LoadImage(img image.Image) {
 	DebugLog("Loading image")
 	// load the image from the file
 
-	s.ShownImage = rl.LoadImage(path)
-	aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
+	s.ShownImage = rl.NewImageFromImage(img)
+	// aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
 
-	// if it's longer on the x axis
-	if aspectRatio > 1 {
-		rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
-	} else {
-		// it's longer on the y axis
-		rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
-	}
+	// // if it's longer on the x axis
+	// if aspectRatio > 1 {
+	// 	rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
+	// } else {
+	// 	// it's longer on the y axis
+	// 	rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
+	// }
 	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
 	s.WorkingImage = s.OrigImage
-
+	s.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
+	rl.SetWindowSize(int(state.ShownImage.Width+400), int(state.ShownImage.Height))
 }
 
 func (s *State) GrayscaleFilter() {
@@ -559,8 +592,10 @@ func (s *State) LoadLanguageData() {
 	}
 }
 func (s *State) Init() {
+	// Image loading will be called from main when file is drag&dropped
 	InfoLog("Initialising state")
 	s.LoadFonts()
+	InfoLog("Initialising filters")
 	s.Filters = Filters{
 		DitheringQuantizationBuckets: 190,
 		QuantizingBands:              50,
@@ -569,6 +604,7 @@ func (s *State) Init() {
 		LightenDarken:                0.0,
 		Order:                        [FilterCount]string{"control.grayscale", "control.quantizing", "control.dithering", "control.channeladjustment", "control.boxblur", "control.lightendarken"}, // initial Order
 	}
+	InfoLog("Initialising windows")
 	s.FilterWindow = FilterOrderWindow{
 		Showing: false,
 		Anchor:  rl.Vector2{X: 20, Y: 20},
@@ -591,27 +627,26 @@ func (s *State) Init() {
 		Anchor:  rl.Vector2{X: 20, Y: 20},
 	}
 
+	InfoLog("Initialising language data")
 	s.LoadLanguageData()
+
 	s.Config.FileFormat = TIFF
+	InfoLog("Initialising font size")
 	s.Config.FontSize = 10
 	s.SetFontSize()
-	s.QuantizationKMeansIterations = 10 // adjust for perfk
-	s.LoadImage("./resources/image.png")
-	//load the image from the file
+	InfoLog("Finished state init")
 
 	//resize the image to fit the window on its largest axis
 	//send the image to the GPU
 	// rl.UpdateTexture(s.CurrentTexture, Uint8SliceToRGBASlice(s.OrigImage.Pix))
-	s.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
 	// state.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
 
 	//initialise everything else
-	s.BackgroundColour = rl.RayWhite
 }
 
 func (s *State) SaveImage() {
 	extension := s.Config.GetActiveFileFormat().String()
-	InfoLogf("Saving as image.%s", extension)
+	InfoLogf("Saving as output.%s", extension)
 	f, err := os.Create("./output." + extension)
 	if err != nil {
 		FatalLogf("Couldn't create file: %v", err.Error())
@@ -677,12 +712,12 @@ var FontLibrary [int(FontCount)]rl.Font
 
 func (s *State) LoadFonts() {
 	DebugLogf("Loading %d fonts", FontCount)
-	FontLibrary[FontDefault]     = rl.GetFontDefault()
-	FontLibrary[FontArial]       = rl.LoadFont("resources/arial.ttf")
+	FontLibrary[FontDefault] = rl.GetFontDefault()
+	FontLibrary[FontArial] = rl.LoadFont("resources/arial.ttf")
 	FontLibrary[FontBerkleyMono] = rl.LoadFont("resources/berkley_mono.otf")
-	FontLibrary[FontComicSans]   = rl.LoadFont("resources/comic_sans.ttf")
-	FontLibrary[FontZapfino]     = rl.LoadFont("resources/zapfino.ttf")
-	FontLibrary[FontSpleen]      = rl.LoadFont("resources/spleen.otf")
+	FontLibrary[FontComicSans] = rl.LoadFont("resources/comic_sans.ttf")
+	FontLibrary[FontZapfino] = rl.LoadFont("resources/zapfino.ttf")
+	FontLibrary[FontSpleen] = rl.LoadFont("resources/spleen.otf")
 }
 func (s *State) ChangeFont() {
 	DebugLogf("Changing font to %d", s.Config.CurrentFont)
@@ -691,4 +726,3 @@ func (s *State) ChangeFont() {
 func (s *State) SetFontSize() {
 	gui.SetStyle(gui.DEFAULT, gui.TEXT_SIZE, s.Config.FontSize)
 }
-
