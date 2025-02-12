@@ -7,9 +7,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
-	"math"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -27,6 +25,7 @@ const (
 	LanguageCount          = iota
 )
 
+//state object
 type State struct {
 	ImageLoaded bool
 	ImagePath   string
@@ -36,13 +35,15 @@ type State struct {
 	WorkingImage image.RGBA
 	ShownImage   *rl.Image
 	ImagePalette []rl.Color
-
+	
+	// Window data
 	FilterWindow   FilterOrderWindow
 	PaletteWindow  PaletteWindow
 	HelpWindow     HelpWindow
 	SaveLoadWindow SaveLoadWindow
 	SettingsWindow SettingsWindow
-
+	
+	// Histogram data
 	RedHistogram   [256]int
 	BlueHistogram  [256]int
 	GreenHistogram [256]int
@@ -53,11 +54,12 @@ type State struct {
 
 	// UI
 	Filters Filters
-
+	
+	// Config data
 	Config       Config
 	LanguageData [LanguageCount]map[string]string
 }
-
+// filters object
 type Filters struct {
 	IsGrayscaleEnabled bool
 
@@ -95,52 +97,10 @@ func (s *State) LightenDarken() {
 	}
 }
 
-func (h *ColourHistogram) ConstructHistogram() {
-	h.RedChannel = make(map[uint8]int, 256)
-	h.GreenChannel = make(map[uint8]int, 256)
-	h.BlueChannel = make(map[uint8]int, 256)
-	for y := 0; y < state.WorkingImage.Rect.Dy(); y++ {
-		for x := 0; x < state.WorkingImage.Rect.Dx(); x++ {
-			r, g, b, _ := state.WorkingImage.At(x, y).RGBA()
-			h.RedChannel[uint8(r)] += 1
-			h.GreenChannel[uint8(g)] += 1
-			h.BlueChannel[uint8(b)] += 1
-		}
-	}
-}
-
-func (s *State) ConstructPalette() {
-	pal := make(map[rl.Color]float64)
-	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
-		r := s.WorkingImage.Pix[i]
-		g := s.WorkingImage.Pix[i+1]
-		b := s.WorkingImage.Pix[i+2]
-		pal[rl.Color{R: r, G: g, B: b, A: 255}] = 0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b)
-	}
-	colours := make([]rl.Color, 0, len(pal))
-	for k, _ := range pal {
-		colours = append(colours, k)
-	}
-	slices.SortFunc(colours, func(a, b rl.Color) int {
-		if pal[a] > pal[b] {
-			return -1
-		}
-		return 1
-	})
-	state.ImagePalette = colours
-}
-
 func (s *State) GetFiltersListViewString() string {
 	return strings.Join(MapOut(s.Filters.Order[:], Translate), ";")
 }
 
-func (s *State) GetImageColours() []rl.Color {
-	pixels := make([]rl.Color, len(s.OrigImage.Pix)/4)
-	for idx := 0; idx < len(s.OrigImage.Pix)/4; idx += 4 {
-		pixels[idx] = rl.Color{R: s.OrigImage.Pix[idx], G: s.OrigImage.Pix[idx+1], B: s.OrigImage.Pix[idx+2], A: s.OrigImage.Pix[idx+3]}
-	}
-	return pixels
-}
 func (s *State) GenerateHistogram() {
 	s.RedHistogram = [256]int{}
 	s.GreenHistogram = [256]int{}
@@ -152,29 +112,7 @@ func (s *State) GenerateHistogram() {
 	}
 }
 
-func gaussianKernel(stDev float64, size int) [][]float64 {
-	res := make([][]float64, size)
-	for i := range size {
-		res[i] = make([]float64, size)
-	}
-	sum := 0.0
-	for x := 0; x < size; x++ {
-		for y := 0; y < size; y++ {
-			exponent := -(float64(x*x+y*y) / (2 * stDev * stDev))
-			coeff := 1 / (2 * math.Pi * stDev * stDev)
-			res[x][y] = coeff * math.Exp(exponent)
-			sum += res[x][y]
-		}
-	}
-	//normalize
-	for x := 0; x < size; x++ {
-		for y := 0; y < size; y++ {
-			res[x][y] /= sum
-		}
-	}
-	return res
-}
-
+// clamp values of arbitrary types
 func Clamp[T interface{ ~int | ~float64 }](v, min, max T) T {
 	if v >= max {
 		return max
@@ -186,84 +124,33 @@ func Clamp[T interface{ ~int | ~float64 }](v, min, max T) T {
 }
 
 func (s *State) BoxBlurFilter() {
-	//kernelSize := 3
 	bounds := s.WorkingImage.Bounds()
-	// temp := image.NewRGBA(bounds)
 	w, h := bounds.Dx(), bounds.Dy()
-	// rad := s.Filters.BoxBlurIterations
-	// // horizontal pass
-	// for y := 0; y < h; y++ {
-	// 	for x := 0; x < w; x++ {
-	// 		count := 0
-	// 		var r, g, b uint32
-	// 		for i := -rad; i <= rad; i++ {
-	// 			px := Clamp(x+int(i), 0, w-1)
-	// 			r, g, b, _ = s.OrigImage.At(px, y).RGBA()
-	// 			xi := x + int(i)
-	// 			if xi >= 0 && xi < w {
-	// 				c := s.OrigImage.At(xi, y)
-	// 				cr, cg, cb, _ := c.RGBA()
-	// 				r += (cr >> 8)
-	// 				g += (cg >> 8)
-	// 				b += (cb >> 8)
-	// 				count++
-	// 			}
-	// 		}
-	// 		temp.SetRGBA(x, y, color.RGBA{
-	// 			R: uint8(int(r) / count),
-	// 			G: uint8(int(g) / count),
-	// 			B: uint8(int(b) / count),
-	// 			A: 255,
-	// 		})
-	// 	}
-	// }
-	// // vertical pass
-	// for y := 0; y < h; y++ {
-	// 	for x := 0; x < w; x++ {
-	// 		count := 0
-	// 		var r, g, b uint32
-	// 		for i := -rad; i <= rad; i++ {
-	// 			py := Clamp(y+int(i), 0, h-1)
-	// 			r, g, b, _ = s.OrigImage.At(x, py).RGBA()
-	// 			yi := y + int(i)
-	// 			if yi >= 0 && yi < h {
-	// 				c := s.OrigImage.At(x, yi)
-	// 				cr, cg, cb, _ := c.RGBA()
-	// 				r += (cr >> 8)
-	// 				g += (cg >> 8)
-	// 				b += (cb >> 8)
-	// 				count++
-	// 			}
-	// 		}
-	// 		temp.SetRGBA(x, y, color.RGBA{
-	// 			R: uint8(int(r) / count),
-	// 			G: uint8(int(g) / count),
-	// 			B: uint8(int(b) / count),
-	// 			A: 255,
-	// 		})
-	// 	}
-	// }
-	// s.WorkingImage = *temp
+	// for each iteration
 	for i := range s.Filters.BoxBlurIterations {
 		_ = i
+		// for each pixel
 		for y := 0; y < h; y++ {
 			for x := 0; x < w; x++ {
+				// if we're on an edge, skip
 				if x < 1 || y < 1 || x+1 == w || y+1 == h {
 					continue
 				}
+				// get the 3x3 surrounding pixels
 				pixels := make([]color.Color, 9)
-				pixels[0] = s.WorkingImage.At(x-1, y-1) // tl
-				pixels[1] = s.WorkingImage.At(x, y-1)   // tm
-				pixels[2] = s.WorkingImage.At(x+1, y-1) // tr
+				pixels[0] = s.WorkingImage.At(x-1, y-1) // top left
+				pixels[1] = s.WorkingImage.At(x, y-1)   // top middle
+				pixels[2] = s.WorkingImage.At(x+1, y-1) // top right
 
-				pixels[3] = s.WorkingImage.At(x-1, y) // ml
-				pixels[4] = s.WorkingImage.At(x, y)   // mm
-				pixels[5] = s.WorkingImage.At(x+1, y) // mr
+				pixels[3] = s.WorkingImage.At(x-1, y) // middle left
+				pixels[4] = s.WorkingImage.At(x, y)   // centre
+				pixels[5] = s.WorkingImage.At(x+1, y) // middle right
 
-				pixels[6] = s.WorkingImage.At(x-1, y+1) // bl
-				pixels[7] = s.WorkingImage.At(x, y+1)   // bm
-				pixels[8] = s.WorkingImage.At(x+1, y+1) // br
-
+				pixels[6] = s.WorkingImage.At(x-1, y+1)// bottom left  
+				pixels[7] = s.WorkingImage.At(x, y+1)  // bottom middle
+				pixels[8] = s.WorkingImage.At(x+1, y+1)// bottom right 
+					
+				// in the 3x3 kernel get the mean of red green and blue
 				var rSum, gSum, bSum, aSum int
 				for _, p := range pixels {
 					r, g, b, a := p.RGBA()
@@ -276,66 +163,17 @@ func (s *State) BoxBlurFilter() {
 				gSum /= 9
 				bSum /= 9
 				aSum /= 9
+				// set the pixel to the mean of the surrounding pixels and itself
 				s.WorkingImage.Set(x, y, color.RGBA{R: uint8(rSum), G: uint8(gSum), B: uint8(bSum), A: uint8(aSum)})
 			}
 		}
 	}
 }
 
-func (s *State) GaussianBlurFilter() {
-	//w := s.WorkingImage.Bounds().Dx()
-	//h := s.WorkingImage.Bounds().Dy()
-	//offset := s.Filters.GaussianKernelSize / 2
-	//s.Filters.GaussianKernelSize = int(math.Pow(math.Ceil(6.0*s.Filters.GaussianDeviation), 2.0))
-	//kernel := gaussianKernel(s.Filters.GaussianDeviation, s.Filters.GaussianKernelSize)
-	//for y := 0; y < h; y++ {
-	//	for x := 0; x < w; x++ {
-	//		var rSum, gSum, bSum float64
-	//
-	//		// apply convolution
-	//		for i := 0; i < s.Filters.GaussianKernelSize; i++ {
-	//			for j := 0; j < s.Filters.GaussianKernelSize; j++ {
-	//				px := Clamp(x+i-offset, 0, w)
-	//				py := Clamp(y+i-offset, 0, h)
-	//
-	//				r, g, b, _ := s.WorkingImage.At(px, py).RGBA()
-	//				rSum += float64(r) * kernel[i][j]
-	//				gSum += float64(g) * kernel[i][j]
-	//				bSum += float64(b) * kernel[i][j]
-	//			}
-	//		}
-	//		blurredColor := color.RGBA{
-	//			R: uint8(math.Min(math.Max(rSum/257, 0), 255)),
-	//			G: uint8(math.Min(math.Max(gSum/257, 0), 255)),
-	//			B: uint8(math.Min(math.Max(bSum/257, 0), 255)),
-	//			A: 255,
-	//		}
-	//		s.WorkingImage.Set(x, y, blurredColor)
-	//	}
-	//}
-
-}
-
-//		func (s *State) GenerateNoiseImage(w, h int) {
-//			DebugLog("Generating noise image")
-//			seed := time.Now().Unix()
-//			rng := rand.New(rand.NewSource(seed))
-//			imageSlice := make([]uint8, w*h*4) // pixels * channels
-//			for i := 0; i < w*h*4; i += 4 {
-//				imageSlice[i+0] = uint8(rng.Intn(256))
-//				imageSlice[i+1] = uint8(rng.Intn(256))
-//				imageSlice[i+2] = uint8(rng.Intn(256))
-//				imageSlice[i+3] = 255
-//			}
-//			rlImage := rl.NewImage(imageSlice, int32(w), int32(h), 0, rl.UncompressedR8g8b8a8).ToImage()
-//			s.LoadImage(&rlImage)
-//			s.RefreshImage()
-//	}
 func (s *State) RefreshImage() {
 	// CONSTRUCT IMAGE PALETTE MAP
 	s.ApplyFilters()                                             // up to 145ms
 	s.CurrentTexture = rl.LoadTextureFromImage(state.ShownImage) // >1ms
-	// s.ConstructPalette()                                      // takes 120ms on full image but any quantization reduces a lot
 	s.GenerateHistogram()
 }
 
@@ -375,15 +213,15 @@ func (s *State) LoadImage(img image.Image) {
 	// load the image from the file
 
 	s.ShownImage = rl.NewImageFromImage(img)
-	// aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
+	aspectRatio := float32(s.ShownImage.Width) / float32(s.ShownImage.Height)
 
-	// // if it's longer on the x axis
-	// if aspectRatio > 1 {
-	// 	rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
-	// } else {
-	// 	// it's longer on the y axis
-	// 	rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
-	// }
+	// if it's longer on the x axis
+	if aspectRatio > 1 {
+		rl.ImageResizeNN(s.ShownImage, int32(rl.GetScreenWidth()), int32(float32(rl.GetScreenWidth())/aspectRatio))
+	} else {
+		// it's longer on the y axis
+		rl.ImageResizeNN(s.ShownImage, int32(float32(rl.GetScreenHeight())*aspectRatio), int32(rl.GetScreenHeight()))
+	}
 	s.OrigImage = *s.ShownImage.ToImage().(*image.RGBA)
 	s.WorkingImage = s.OrigImage
 	s.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
@@ -392,7 +230,9 @@ func (s *State) LoadImage(img image.Image) {
 
 func (s *State) GrayscaleFilter() {
 	DebugLog("Grayscale filter applied")
+	// for each pixel 
 	for i := 0; i < len(s.WorkingImage.Pix); i += 4 {
+		// set the r, g and b to the mean value of r, g and b
 		mean := uint8((int(s.WorkingImage.Pix[i]) + int(s.WorkingImage.Pix[i+1]) + int(s.WorkingImage.Pix[i+2])) / 3)
 		s.WorkingImage.Pix[i+0] = mean
 		s.WorkingImage.Pix[i+1] = mean
@@ -402,11 +242,6 @@ func (s *State) GrayscaleFilter() {
 
 func (s *State) QuantizingFilter() {
 	DebugLog("Quantizing filter applied")
-	// maybe preserve current code and make a "simple" and "accurate" mode
-	// this is an NP-hard algorithm as we need to ca
-	// We need to do k means clustering on the pixel space
-	// then set each colour in the local space to the mean
-	// value of the space... I think
 
 	// floor(x/bandWidth)*bandWidth + bandWidth/2
 	// FIXME this is terrible, doesn't work and crashes in weird edge cases
@@ -446,71 +281,8 @@ func (s *State) TintFilter() {
 	}
 }
 
-func stdDev(vals []uint8) float64 {
-	sum := 0.0
-	for _, v := range vals {
-		sum += float64(v)
-	}
-	mean := sum / float64(len(vals))
-	dev := 0.0
-	for _, v := range vals {
-		dev += math.Pow(float64(v)-mean, 2)
-	}
 
-	dev /= float64(len(vals))
-	return math.Sqrt(dev)
-}
-
-func RGBToHSV(r, g, b uint8) (float64, float64, float64) {
-	rPrime := float64(r) / 255.0
-	gPrime := float64(g) / 255.0
-	bPrime := float64(b) / 255.0
-
-	// value
-	value := float64(max(rPrime, gPrime, bPrime))
-	delta := value - float64(min(rPrime, gPrime, bPrime))
-
-	// Hue
-
-	// Saturation
-	saturation := 0.0
-	if value != 0 {
-		saturation = float64(delta) / float64(value)
-	}
-	hue := 0.0
-	switch value {
-	case float64(rPrime):
-		hue = 60.0 * float64(int((gPrime-bPrime)/delta)%6)
-	case float64(gPrime):
-		hue = 60.0 * (((bPrime - rPrime) / delta) + 2)
-	case float64(bPrime):
-		hue = 60.0 * (((rPrime - gPrime) / delta) + 4)
-	}
-	return hue, saturation, value
-}
-
-func hsvPixels(pix []uint8) []float64 {
-	res := make([]float64, len(pix))
-	for i := 0; i < len(pix); i += 4 {
-		h, s, v := RGBToHSV(pix[i], pix[i+1], pix[i+2])
-		res[i+0] = h
-		res[i+1] = s
-		res[i+2] = v
-		res[i+3] = float64(pix[i+3])
-	}
-	return res
-}
-
-func everyNth[T any](vals []T, n, c int) []T {
-	res := make([]T, len(vals)/n)
-	for i := 0; i < len(vals)/n; i += 1 {
-		res[i] = vals[n*i+c]
-	}
-	return res
-}
-
-// TODO: add a save & load menu with a drag and drop box
-
+// Floyd-Steinburg dithering
 func (s *State) DitheringFilter() {
 	bounds := s.WorkingImage.Bounds()
 	for y := 0; y < bounds.Dy(); y++ {
@@ -582,10 +354,12 @@ func (s *State) ApplyFilters() {
 
 // TODO: logging not terminating colour escape codes
 func (s *State) LoadLanguageData() {
+	// open the language file
 	content, err := os.ReadFile("./resources/langs.json")
 	if err != nil {
 		FatalLogf("Couldn't read language data: %v", err.Error())
 	}
+	// deserialize it into the lanugage data map
 	err = json.Unmarshal(content, &s.LanguageData)
 	if err != nil {
 		FatalLogf("Couldn't decode language file: %v", err.Error())
@@ -636,21 +410,17 @@ func (s *State) Init() {
 	s.SetFontSize()
 	InfoLog("Finished state init")
 
-	//resize the image to fit the window on its largest axis
-	//send the image to the GPU
-	// rl.UpdateTexture(s.CurrentTexture, Uint8SliceToRGBASlice(s.OrigImage.Pix))
-	// state.CurrentTexture = rl.LoadTextureFromImage(s.ShownImage)
-
-	//initialise everything else
 }
 
 func (s *State) SaveImage() {
 	extension := s.Config.GetActiveFileFormat().String()
 	InfoLogf("Saving as output.%s", extension)
+	// create a file with the current format's extension
 	f, err := os.Create("./output." + extension)
 	if err != nil {
 		FatalLogf("Couldn't create file: %v", err.Error())
 	}
+	// write the image to the file
 	switch s.Config.FileFormat {
 	case PNG:
 		err = png.Encode(f, image.Image(&s.WorkingImage))
@@ -666,9 +436,14 @@ func (s *State) SaveImage() {
 	}
 }
 
+
+// Close the application
 func (s *State) Close() {
+	// save on exit
 	state.SaveImage()
+	// close the window
 	rl.CloseWindow()
+	// successfully exit the process
 	os.Exit(0)
 }
 
@@ -695,10 +470,11 @@ var DarkThemeData [][]int = [][]int{
 	{10, 5, 0xf6f6f6ff}, // VALUEBOX_TEXT_COLOR_FOCUSED
 }
 
+
 func (s *State) ChangeTheme() {
 	switch s.Config.CurrentTheme {
 	case ThemeLight:
-		gui.LoadStyleDefault()
+		gui.LoadStyleDefault() // the default theme is a light theme
 	case ThemeDark:
 		for _, control := range DarkThemeData {
 			gui.SetStyle(int32(control[0]), int32(control[1]), int64(control[2]))
@@ -707,7 +483,7 @@ func (s *State) ChangeTheme() {
 	s.LoadFonts()
 	s.ChangeFont()
 }
-
+// global font map
 var FontLibrary [int(FontCount)]rl.Font
 
 func (s *State) LoadFonts() {

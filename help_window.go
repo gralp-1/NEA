@@ -18,6 +18,7 @@ func (p *HelpWindow) getRect() rl.Rectangle {
 }
 func (p *HelpWindow) Draw() {
 	p.Showing = !gui.WindowBox(p.getRect(), Translate("window.help.title"))
+	// Draw out all of the translated help items
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+30, 300, 40), "H - "+Translate("window.help.help"))
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+50, 300, 40), "C - "+Translate("window.help.palette"))
 	gui.Label(rl.NewRectangle(p.Anchor.X+10, p.Anchor.Y+70, 300, 40), "O - "+Translate("window.help.order"))

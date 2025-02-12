@@ -16,6 +16,7 @@ const (
 	Debug
 )
 
+// Set the global log level
 const Level LogLevel = Debug
 
 func InfoLog(format string) {
